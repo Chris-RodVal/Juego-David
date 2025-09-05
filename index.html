@@ -317,9 +317,22 @@
     // Best time
     bestStart.textContent = fmtTime(getBest());
 
-    // Autoplay-friendly: iniciar música de lobby tras el primer gesto del usuario
-    function unlockLobbyOnce(){ if (state !== 'start') return; try { bgmLobby.volume = 0.5; bgmLobby.play().catch(()=>{}); } catch (e) {} window.removeEventListener('pointerdown', unlockLobbyOnce); window.removeEventListener('keydown', unlockLobbyOnce); window.removeEventListener('touchstart', unlockLobbyOnce); }
-    window.addEventListener('pointerdown', unlockLobbyOnce); window.addEventListener('keydown', unlockLobbyOnce); window.addEventListener('touchstart', unlockLobbyOnce);
+    // Autoplay-friendly: iniciar música de lobby con múltiples gestos (para evitar bloqueos)
+    bestStart.textContent = fmtTime(getBest());
+
+    let triedLobby = false;
+    function ensureLobbyPlay(){
+      if (state !== 'start' || triedLobby) return;
+      triedLobby = true;
+      try { bgmLobby.volume = 0.55; bgmLobby.currentTime = 0; const p = bgmLobby.play(); if (p && p.catch) p.catch(()=>{ triedLobby = false; }); } catch (e) { triedLobby = false; }
+    }
+    // dispara con varias señales válidas de usuario
+    window.addEventListener('pointerdown', ensureLobbyPlay, { once:false });
+    window.addEventListener('keydown', ensureLobbyPlay, { once:false });
+    window.addEventListener('touchstart', ensureLobbyPlay, { once:false });
+    window.addEventListener('pointermove', ensureLobbyPlay, { once:false });
+    // al pasar por el botón Iniciar, si aún no suena, la activamos
+    btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
     // Begin loop
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
