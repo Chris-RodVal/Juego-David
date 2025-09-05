@@ -193,19 +193,45 @@
     };
     let pAnim = "idle", pFrame = 0, pTimer = 0;
 
-    // ======== Enemy anim maps (ajustados a PNG reales) ========
-    // Todos salvo demonio y roca usan 256×256 (1536×1024 hoja → 24 frames)
+    // ======== Enemy anim maps (ajustados a dónde hay píxel) ========
+    // Todas salvo demonio/roca: 1536×1024 (grid 6×4 → 24 frames, 0..23)
     const ENEMY_ANIMS = {
-      soldado: { fw:256, fh:256, rate:0.15, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
-      arquero: { fw:256, fh:256, rate:0.16, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
-      bruto:   { fw:256, fh:256, rate:0.18, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
-      ladron:  { fw:256, fh:256, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
-      leon:    { fw:256, fh:256, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
-      oso:     { fw:256, fh:256, rate:0.14, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
-      // Demonio.png: 1024×1024 → celdas 512×512 → total 4 frames
+      // muchas hojas tienen la fila 1 casi vacía; usamos la fila 2 (índices 6..11) y 3 (12..17)
+      soldado: { fw:256, fh:256, rate:0.15,
+        idle:[6,7],
+        walk:[8,9,10,11],
+        atk:[12,13]
+      },
+      arquero: { fw:256, fh:256, rate:0.16,
+        idle:[6,7],
+        walk:[8,9,10,11],
+        atk:[12,13,14,15]
+      },
+      bruto:   { fw:256, fh:256, rate:0.18,
+        idle:[6,7],
+        walk:[8,9,10,11],
+        atk:[12,13]
+      },
+      ladron:  { fw:256, fh:256, rate:0.12,
+        idle:[6,7],
+        walk:[8,9,10,11],
+        atk:[12,13]
+      },
+      // salta 10-11 si ves hueco; aquí aún usamos 8-9 y 12-13 para caminar
+      leon:    { fw:256, fh:256, rate:0.12,
+        idle:[6,7],
+        walk:[8,9,12,13],
+        atk:[14,15]
+      },
+      oso:     { fw:256, fh:256, rate:0.14,
+        idle:[6,7],
+        walk:[8,9,10,11],
+        atk:[12,13]
+      },
+      // Demonio.png: 1024×1024 → celdas 512×512 → 4 frames (0..3)
       demonio: { fw:512, fh:512, rate:0.12, idle:[0,1], atk:[2,3] },
-      // Roca.png: hoja 1536×1024; usamos 4 frames de la 1ª fila
-      roca:    { fw:256, fh:256, rate:0.10, roll:[0,1,2,3] }
+      // Roca: usa 2ª fila para un rodado claro
+      roca:    { fw:256, fh:256, rate:0.10, roll:[6,7,8,9] }
     };
 
     // ======== Catálogo enemigo (igual lógica) ========
