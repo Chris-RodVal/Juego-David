@@ -138,7 +138,6 @@
 
     // ===== GRID FIJA por hoja =====
     const GRID = {
-      // 1536×1024 → 6×4 de 256×256
       david:   { cols: 6, rows: 4 },
       soldado: { cols: 6, rows: 4 },
       arquero: { cols: 6, rows: 4 },
@@ -147,23 +146,20 @@
       leon:    { cols: 6, rows: 4 },
       oso:     { cols: 6, rows: 4 },
       roca:    { cols: 6, rows: 4 },
-      // 1024×1024 → 2×2 de 512×512
-      demonio: { cols: 2, rows: 2 },
+      demonio: { cols: 2, rows: 2 },  // 1024x1024
     };
 
     // ===== Carga + construcción de celdas con recorte y baseline =====
-    // Cada frame guardará: sx,sy,sw,sh y baseline (distancia desde sy al píxel opaco más bajo).
-    const Sheets = {};                             // FIX
+    const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
     function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 
-    function buildGridWithTrim(key, img){         // FIX: recorte y baseline por celda
+    function buildGridWithTrim(key, img){
       const {cols, rows} = GRID[key] || {cols:1, rows:1};
       const fw = Math.floor(img.naturalWidth / cols);
       const fh = Math.floor(img.naturalHeight / rows);
 
-      // pintar en canvas para leer alpha
       const tmp = document.createElement('canvas'); tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
       const tg = tmp.getContext('2d', {willReadFrequently:true});
       tg.drawImage(img,0,0);
@@ -185,21 +181,15 @@
             }
           }
         }
-        if (maxX<0 || maxY<0){ // celda vacía → usar 1×1 transparente para que se “salte”
-          return { sx, sy, sw:0, sh:0, baseline:0, empty:true };
-        }
+        if (maxX<0 || maxY<0){ return { sx, sy, sw:0, sh:0, baseline:0, empty:true }; }
         const sw = Math.max(1, (maxX - minX + 1));
         const sh = Math.max(1, (maxY - minY + 1));
-        const baseline = maxY - minY; // píxel opaco más bajo relativo al recorte
+        const baseline = maxY - minY;
         return { sx: sx+minX, sy: sy+minY, sw, sh, baseline, empty:false };
       }
 
       const frames=[];
-      for(let r=0;r<rows;r++){
-        for(let c=0;c<cols;c++){
-          frames.push(cellInfo(c,r));
-        }
-      }
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cellInfo(c,r));
       const total = frames.length;
       Sheets[key] = { img, fw, fh, cols, rows, total, frames };
     }
@@ -208,14 +198,13 @@
       for (const [key,src] of Object.entries(SOURCES)){
         try{
           const img = await loadImage(src);
-          buildGridWithTrim(key, img);            // FIX
+          buildGridWithTrim(key, img);
         }catch(e){
           console.warn(`[Sprites] Falló ${key}:`, e);
           SPRITES_FAILED.push(key);
         }
       }
       SPRITES_READY = true;
-      // Auditor rápido
       setTimeout(()=>{
         const t = Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, total:s.total}]));
         console.table(t);
@@ -223,10 +212,9 @@
     }
     loadAll();
 
-    // ===== Secuencias (índices dentro de la grilla; se filtrarán por celdas vacías) =====
+    // ===== Secuencias y velocidades =====
     function seqRange(a,b){ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; }
 
-    // Para 6×4: fila2=6..11 (idle), fila3=12..17 (walk/roll), fila4=18..23 (atk)
     const PLAYER_SEQ_RAW = {
       idle: seqRange(6,9),
       walk: seqRange(12,15),
@@ -244,9 +232,15 @@
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
 
-    // Filtra cualquier índice que sea celda vacía en la hoja concreta
-    function sanitizeSeq(sheetKey, arr){           // FIX
-      const S = Sheets[sheetKey];
+    // FIX: ENEMY_RATE único (antes estaba duplicado y rompía el script)
+    const ENEMY_RATE = {
+      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
+    };
+
+    // Filtra índices que apunten a celdas vacías
+    const SheetsRef = () => Sheets; // helper por cierre
+    function sanitizeSeq(sheetKey, arr){
+      const S = SheetsRef()[sheetKey];
       if (!S) return arr;
       const total = S.total;
       const out = [];
@@ -255,13 +249,8 @@
         const info = S.frames[f];
         if (info && !info.empty) out.push(f);
       }
-      // si se vació, vuelve a [0]
       return out.length ? out : [0];
     }
-
-    const ENEMY_RATE = {
-      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
-    };
 
     // ===== Tipos =====
     const ENEMY_TYPES = [
@@ -348,7 +337,7 @@
     }
 
     // ===== Dibujo (usa recorte + baseline) =====
-    function drawCell(sheetKey, frameIndex, x, y, w, h){   // FIX
+    function drawCell(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S){
         ctx.fillStyle='#1f2937'; ctx.fillRect(x|0,y|0,w,h);
@@ -357,7 +346,6 @@
       }
       const total=S.total||1;
       let f=((frameIndex|0)%total + total)%total;
-      // saltar celdas vacías avanzando hasta encontrar una con contenido
       let guard=0;
       while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
       const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
@@ -367,7 +355,6 @@
       const dw = info.sw * scaleX;
       const dh = info.sh * scaleY;
 
-      // Alineación por suelo: el baseline del frame toca y+h
       const baselineDst = info.baseline * scaleY;
       const dx = (x|0) + ((w - dw) * 0.5);
       const dy = (y|0) + (h - baselineDst) - (dh - baselineDst);
@@ -390,10 +377,6 @@
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
       drawCell('david', fid, px, py, p.w, p.h);
     }
-
-    const ENEMY_RATE = {
-      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
-    };
 
     function drawEnemySprite(e, dt){
       if (!e.anim) e.anim=(e.flyer?'idle':(e.roller?'roll':'walk'));
@@ -576,7 +559,7 @@
     btnRestart.addEventListener('click', startGame);
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby
+    // Música lobby (autoplay-friendly: sólo se intenta tras una interacción)
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
