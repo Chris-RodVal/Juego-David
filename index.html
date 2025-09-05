@@ -168,8 +168,7 @@
       let loaded = imgs.filter(i => i.complete && i.naturalWidth > 0).length;
       if (loaded === imgs.length) { 
         SPRITES_READY = true; 
-        // FIX: corre auditoría al cargar todos los PNG
-        setTimeout(auditAnimations, 0); // eslint-disable-line no-undef
+        setTimeout(auditAnimations, 0);
         return; 
       }
       imgs.forEach((im, idx) => {
@@ -184,25 +183,29 @@
       requestAnimationFrame(waitSprites);
     })();
 
-    // Player spritesheet (32x48)
+    // ======== Player spritesheet (ajustado a PNG real) ========
+    // David.png: 1536×1024 → celdas 256×256 → total 6×4=24
     const PLAYER_ANIM = {
-      fw: 32, fh: 48, rate: 0.14,
+      fw: 256, fh: 256, rate: 0.14,
       idle: [0,1],
       walk: [2,3,4,5],
       sling: [6,7,8]
     };
     let pAnim = "idle", pFrame = 0, pTimer = 0;
 
-    // Enemy anim maps
+    // ======== Enemy anim maps (ajustados a PNG reales) ========
+    // Todos salvo demonio y roca usan 256×256 (1536×1024 hoja → 24 frames)
     const ENEMY_ANIMS = {
-      soldado: { fw:32, fh:48, rate:0.15, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      arquero: { fw:32, fh:48, rate:0.16, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
-      bruto:   { fw:32, fh:48, rate:0.18, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      ladron:  { fw:32, fh:48, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      leon:    { fw:32, fh:32, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      oso:     { fw:32, fh:32, rate:0.14, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      demonio: { fw:32, fh:32, rate:0.12, idle:[0,1,2,3], atk:[4,5,6] },
-      roca:    { fw:32, fh:32, rate:0.10, roll:[0,1,2,3] }
+      soldado: { fw:256, fh:256, rate:0.15, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
+      arquero: { fw:256, fh:256, rate:0.16, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
+      bruto:   { fw:256, fh:256, rate:0.18, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
+      ladron:  { fw:256, fh:256, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
+      leon:    { fw:256, fh:256, rate:0.12, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
+      oso:     { fw:256, fh:256, rate:0.14, idle:[0,1], walk:[2,3,4,5], atk:[6,7]   },
+      // Demonio.png: 1024×1024 → celdas 512×512 → total 4 frames
+      demonio: { fw:512, fh:512, rate:0.12, idle:[0,1], atk:[2,3] },
+      // Roca.png: hoja 1536×1024; usamos 4 frames de la 1ª fila
+      roca:    { fw:256, fh:256, rate:0.10, roll:[0,1,2,3] }
     };
 
     // ======== Catálogo enemigo (igual lógica) ========
@@ -296,14 +299,13 @@
       }
     }
 
-    // ======== Dibujo de sprites (grid multi-fila + fallback) ========
-    // FIX: función robusta que evita cols/rows = 0 → NaN y siempre dibuja algo visible
+    // ======== Dibujo de sprites (robusto y con fallback) ========
     function drawSprite(img, fw, fh, frameIndex, x, y, w, h) {
       const nw = (img && img.naturalWidth)  || 0;
       const nh = (img && img.naturalHeight) || 0;
 
-      // Si no cargó, placeholder
       if (!(nw > 0 && nh > 0)) {
+        // Placeholder visible
         ctx.fillStyle = '#1f2937';
         ctx.fillRect(x|0, y|0, w, h);
         ctx.strokeStyle = '#94a3b8';
@@ -312,24 +314,22 @@
         return;
       }
 
-      // Auto-ajuste de fh cuando la hoja no coincide con lo esperado
+      // Ajuste inteligente de alto de frame
       let effFh = fh;
       if (nh % effFh !== 0) {
         if (nh % 48 === 0) effFh = 48;
         else if (nh % 32 === 0) effFh = 32;
-        else effFh = nh; // una sola fila alta (fallback)
+        else if (nh % 256 === 0) effFh = 256;
+        else if (nh % 512 === 0) effFh = 512;
+        else effFh = nh;
       }
 
       let cols = Math.floor(nw / fw);
       let rows = Math.floor(nh / effFh);
-
-      // Si el ancho no da al menos 1 col, fuerza 1 col y usa todo el ancho
-      if (cols < 1) { cols = 1; }
-      if (rows < 1) { rows = 1; }
+      if (cols < 1) cols = 1;
+      if (rows < 1) rows = 1;
 
       const total = cols * rows;
-
-      // Si sigue siendo inválido, dibuja imagen completa (mejor que nada)
       if (!(total > 0)) {
         ctx.drawImage(img, 0, 0, nw, nh, x|0, y|0, w, h);
         return;
@@ -338,13 +338,10 @@
       const f = Math.max(0, Math.min((frameIndex|0), total - 1));
       const sx = (f % cols) * fw;
       const sy = Math.floor(f / cols) * effFh;
-
-      // Clamp de fuente por seguridad (evita NaN/negativos o fuera de rango)
       const sw = Math.max(0, Math.min(fw, nw - sx));
       const sh = Math.max(0, Math.min(effFh, nh - sy));
 
       if (sw <= 0 || sh <= 0 || !isFinite(sx) || !isFinite(sy)) {
-        // Último recurso: dibuja la imagen completa
         console.warn('[drawSprite] Grid inválido, usando fallback completo', { nw, nh, fw, fh, effFh, cols, rows, f, sx, sy, sw, sh });
         ctx.drawImage(img, 0, 0, nw, nh, x|0, y|0, w, h);
         return;
@@ -356,8 +353,6 @@
     // ======== Render entidades ========
     function drawPlayer(p, dt) {
       const px = (p.x - cameraX), py = p.y;
-
-      // animación
       pTimer += dt;
       const seq = PLAYER_ANIM[pAnim] || PLAYER_ANIM.idle;
       if (pTimer > PLAYER_ANIM.rate) { pTimer = 0; pFrame = (pFrame + 1) % seq.length; }
@@ -594,13 +589,13 @@
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
 
     // ======== Auditoría de hojas de sprites ========
-    // FIX: herramientas para ver datos reales y detectar desajustes
     function sheetInfo(img, fw, fh) {
       const nw = img.naturalWidth, nh = img.naturalHeight;
-      const rowsByFh = nh % fh === 0 ? Math.floor(nh / fh) : (nh % 48 === 0 ? Math.floor(nh/48) : (nh % 32 === 0 ? Math.floor(nh/32) : 1));
-      const effFh = nh % fh === 0 ? fh : (nh % 48 === 0 ? 48 : (nh % 32 === 0 ? 32 : nh));
+      const tryHeights = [fh, 512, 256, 48, 32, nh].filter(Boolean);
+      let effFh = nh;
+      for (const hGuess of tryHeights) { if (nh % hGuess === 0) { effFh = hGuess; break; } }
       const cols = Math.max(1, Math.floor(nw / (fw || nw)));
-      const rows = Math.max(1, rowsByFh);
+      const rows = Math.max(1, Math.floor(nh / effFh));
       return { nw, nh, fw, fh, effFh, cols, rows, total: cols*rows };
     }
     function seqMax(seqs) {
