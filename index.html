@@ -291,18 +291,24 @@
       }
     }
 
-    // ======== Dibujo de sprites (con fallback) ========
+    // ======== Dibujo de sprites (grid multi-fila + fallback) ========
     function drawSprite(img, fw, fh, frameIndex, x, y, w, h) {
-      if (SPRITES_READY && img && img.naturalWidth > 0) {
-        const sx = (frameIndex|0) * fw, sy = 0;
-        ctx.drawImage(img, sx, sy, fw, fh, x|0, y|0, w, h);
-      } else {
-        // placeholder visible
+      // Si la imagen aún no está lista, placeholder
+      if (!(img && img.naturalWidth > 0 && img.naturalHeight > 0)) {
         ctx.fillStyle = '#1f2937';
         ctx.fillRect(x|0, y|0, w, h);
         ctx.strokeStyle = '#94a3b8';
         ctx.strokeRect(x|0, y|0, w, h);
+        return;
       }
+      // Calcula columnas/filas automáticamente según tamaño real
+      const cols = Math.max(1, Math.floor(img.naturalWidth  / fw));
+      const rows = Math.max(1, Math.floor(img.naturalHeight / fh));
+      const total = cols * rows;
+      const f = Math.max(0, Math.min(frameIndex|0, total - 1));
+      const sx = (f % cols) * fw;
+      const sy = Math.floor(f / cols) * fh;
+      ctx.drawImage(img, sx, sy, fw, fh, x|0, y|0, w, h);
     }
 
     // ======== Render entidades ========
@@ -514,7 +520,6 @@
     }
 
     // ======== Input & Boot ========
-    let keys = {};
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') e.preventDefault();
       keys[e.key] = true;
