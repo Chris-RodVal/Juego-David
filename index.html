@@ -33,7 +33,6 @@
     .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
     .hidden { display: none; }
 
-    /* Controls panel */
     .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
@@ -48,7 +47,7 @@
 <body>
   <div class="wrap">
     <div class="stage">
-      <!-- Música de fondo -->
+      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
@@ -126,21 +125,20 @@
     const bgmGame  = document.getElementById('bgmGame');
     const bgmLose  = document.getElementById('bgmLose');
 
-    // ======== Game Constants ========
+    // ======== Constantes ========
     const W = canvas.width, H = canvas.height;
-    const GRAVITY = 2400;        // px/s^2
-    const FRICTION = 0.85;       // ground slide
-
+    const GRAVITY = 2400;
+    const FRICTION = 0.85;
     const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
-    // Themed backgrounds that rotate every 60s
+    // Temas de fondo (rotan cada 60s)
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
       { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
       { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
     ];
 
-    // ======== SPRITES: carga de imágenes ========
+    // ======== SPRITES con verificación de carga ========
     const SPRITES = {
       david: new Image(),
       soldado: new Image(),
@@ -152,6 +150,7 @@
       demonio: new Image(),
       roca: new Image()
     };
+    // Rutas exactas
     SPRITES.david.src   = "David.png";
     SPRITES.soldado.src = "Soldado_basico.png";
     SPRITES.arquero.src = "Arquero.png";
@@ -162,7 +161,25 @@
     SPRITES.demonio.src = "Demonio.png";
     SPRITES.roca.src    = "Roca.png";
 
-    // Player spritesheet map (32x48 por frame)
+    let SPRITES_READY = false;
+    let SPRITES_FAILED = [];
+    (function waitSprites(){
+      const imgs = Object.values(SPRITES);
+      let loaded = imgs.filter(i => i.complete && i.naturalWidth > 0).length;
+      if (loaded === imgs.length) { SPRITES_READY = true; return; }
+      imgs.forEach((im, idx) => {
+        if (im.complete && im.naturalWidth === 0) {
+          const key = Object.keys(SPRITES)[idx];
+          if (!SPRITES_FAILED.includes(key)) {
+            SPRITES_FAILED.push(key);
+            console.warn(`[Sprites] No se pudo cargar: ${key} -> ${im.src}`);
+          }
+        }
+      });
+      requestAnimationFrame(waitSprites);
+    })();
+
+    // Player spritesheet (32x48)
     const PLAYER_ANIM = {
       fw: 32, fh: 48, rate: 0.14,
       idle: [0,1],
@@ -171,7 +188,7 @@
     };
     let pAnim = "idle", pFrame = 0, pTimer = 0;
 
-    // Enemy spritesheet defs
+    // Enemy anim maps
     const ENEMY_ANIMS = {
       soldado: { fw:32, fh:48, rate:0.15, idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
       arquero: { fw:32, fh:48, rate:0.16, idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
@@ -183,7 +200,7 @@
       roca:    { fw:32, fh:32, rate:0.10, roll:[0,1,2,3] }
     };
 
-    // ======== Enemy catalog (lógica de combate intacta) ========
+    // ======== Catálogo enemigo (igual lógica) ========
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -207,9 +224,9 @@
     let cameraX = 0;
 
     let player, stones = [], enemies = [], enemyProjectiles = [];
-    let timeStart = 0, timeNow = 0, elapsed = 0; // seconds
+    let timeStart = 0, timeNow = 0, elapsed = 0;
     let score = 0, paused = false;
-    let spawnTimer = 0, spawnInterval = 1.05; // denser spawn
+    let spawnTimer = 0, spawnInterval = 1.05;
     let maxEnemies = 18;
 
     const groundY = H - 78;
@@ -230,7 +247,7 @@
       pAnim = "idle"; pFrame = 0; pTimer = 0;
     }
 
-    // ======== Background with Themes ========
+    // ======== Fondo ========
     let ashParticles = [];
     function currentTheme() { const idx = Math.floor(elapsed / 60) % THEMES.length; return THEMES[idx]; }
     function drawBackground(dt) {
@@ -242,30 +259,57 @@
       drawRuins(T.ruin, 0.16, 220); drawRuins(T.ruin, 0.24, 180); drawRuins(T.ruin, 0.32, 140);
       if (ashParticles.length < 120 && chance(0.6)) ashParticles.push({ x: rnd(-40, W+40), y: rnd(-20, H-40), a: rnd(0.5, 1.2) });
       ctx.fillStyle = 'rgba(248,250,252,.6)';
-      for (let i=ashParticles.length-1;i>=0;i--) { const p = ashParticles[i]; p.y += p.a * 8 * dt; p.x -= p.a * 12 * dt; ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1); if (p.y > H || p.x < -60) ashParticles.splice(i,1); }
+      for (let i=ashParticles.length-1;i>=0;i--) {
+        const p = ashParticles[i];
+        p.y += p.a * 8 * dt; p.x -= p.a * 12 * dt;
+        ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1);
+        if (p.y > H || p.x < -60) ashParticles.splice(i,1);
+      }
       drawGround(T);
     }
     function drawRuins(color, speed, height) {
       const offset = Math.floor((cameraX * speed)) % W;
       ctx.fillStyle = color;
-      for (let i=-1;i<3;i++) { const baseX = i*W - offset; for (let b=0;b<5;b++) { const x = Math.floor(baseX + b*220); const w = Math.floor(80 + (b%3)*10); const h = height + (b%2? -20:20); ctx.fillRect(x, groundY - h, w, h); ctx.clearRect(x+8, groundY - h - 4, w-16, 3); } }
+      for (let i=-1;i<3;i++) {
+        const baseX = i*W - offset;
+        for (let b=0;b<5;b++) {
+          const x = Math.floor(baseX + b*220);
+          const w = Math.floor(80 + (b%3)*10);
+          const h = height + (b%2? -20:20);
+          ctx.fillRect(x, groundY - h, w, h);
+          ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
+        }
+      }
     }
     function drawGround(T) {
       ctx.fillStyle = T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
       ctx.fillStyle = T.dirt2; for (let y=groundY+2; y<H; y+=4) for (let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
-      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) { ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9); ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5); ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1); }
+      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) {
+        ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
+        ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
     }
 
-    // ======== Rendering helpers (sprites) ========
+    // ======== Dibujo de sprites (con fallback) ========
     function drawSprite(img, fw, fh, frameIndex, x, y, w, h) {
-      const sx = frameIndex * fw, sy = 0;
-      ctx.drawImage(img, sx, sy, fw, fh, x|0, y|0, w, h);
+      if (SPRITES_READY && img && img.naturalWidth > 0) {
+        const sx = (frameIndex|0) * fw, sy = 0;
+        ctx.drawImage(img, sx, sy, fw, fh, x|0, y|0, w, h);
+      } else {
+        // placeholder visible
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(x|0, y|0, w, h);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeRect(x|0, y|0, w, h);
+      }
     }
 
-    // ======== Rendering: Entities con sprites ========
+    // ======== Render entidades ========
     function drawPlayer(p, dt) {
       const px = (p.x - cameraX), py = p.y;
-      // anim state
+
+      // animación
       pTimer += dt;
       const seq = PLAYER_ANIM[pAnim] || PLAYER_ANIM.idle;
       if (pTimer > PLAYER_ANIM.rate) { pTimer = 0; pFrame = (pFrame + 1) % seq.length; }
@@ -282,7 +326,6 @@
       const def = ENEMY_ANIMS[e.type];
       if (!def) return;
 
-      // anim por defecto
       if (!e.anim) e.anim = (e.flyer ? 'idle' : (e.roller ? 'roll' : 'walk'));
       if (e.frame == null) e.frame = 0;
       e.timer = (e.timer||0) + dt;
@@ -290,7 +333,6 @@
       const seq = def[e.anim] || def.walk || def.idle;
       if (e.timer > def.rate) { e.timer = 0; e.frame = (e.frame + 1) % seq.length; }
 
-      // sombra simple para terrestres
       if (!e.flyer && !e.roller) {
         ctx.fillStyle = 'rgba(0,0,0,.25)';
         ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
@@ -301,7 +343,16 @@
     }
 
     // ======== Spawning ========
-    function pickEnemyType(timeSec) { const t = timeSec, pool = []; push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2); if (t > 20) { push('bruto', 3); push('leon', 3); } if (t > 35) { push('oso', 2); } if (t > 25) { push('demonio', 3); } function push(k,n){ for(let i=0;i<n;i++) pool.push(k); } const key = pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
+    function pickEnemyType(timeSec) {
+      const t = timeSec, pool = [];
+      push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2);
+      if (t > 20) { push('bruto', 3); push('leon', 3); }
+      if (t > 35) { push('oso', 2); }
+      if (t > 25) { push('demonio', 3); }
+      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
+      const key = pool[(Math.random()*pool.length)|0];
+      return ENEMY_TYPES.find(e=>e.key===key);
+    }
     function spawnEnemy(timeSec) {
       if (enemies.length > maxEnemies) return;
       const t = pickEnemyType(timeSec);
@@ -311,7 +362,7 @@
       if (chance(0.12)) { const extra = 1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({ ...e, x: e.x + 40*(k+1) }); }
     }
 
-    // ======== Physics & Update ========
+    // ======== Física & Update ========
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
     function update(dt) {
@@ -323,37 +374,34 @@
       if (keys['ArrowLeft'] || keys['a']) { player.vx = -accel; pAnim = 'walk'; }
       if (keys['ArrowRight'] || keys['d']) { player.vx = accel;  pAnim = 'walk'; }
       if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])) { player.vx *= player.onGround ? FRICTION : 1; if (pAnim !== 'sling') pAnim = 'idle'; }
-
       if ((keys['ArrowUp']||keys['w']) && player.onGround) { player.vy = -PLAYER.jump; player.onGround = false; }
-
       player.duck = !!(keys['ArrowDown']||keys['s']);
 
-      // Shoot (honda)
+      // Disparo (honda)
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0) {
         stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
         player.canShoot = PLAYER.stoneCooldown;
         pAnim = 'sling'; pFrame = 0; pTimer = 0;
       }
-      // si terminó anim sling y no se mantiene movimiento -> idle
       if (pAnim === 'sling' && pFrame >= (PLAYER_ANIM.sling.length-1)) {
         if (Math.abs(player.vx) > 40) pAnim = 'walk'; else pAnim = 'idle';
       }
 
-      // Physics
+      // Física
       player.vy += GRAVITY * dt;
       player.x += player.vx * dt; player.y += player.vy * dt;
       const ph = player.duck ? player.h-10 : player.h;
       if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; }
       if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
 
-      // Stones
+      // Piedras
       for (let i=stones.length-1;i>=0;i--) { const s=stones[i]; s.x += s.vx*dt; s.y += s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
 
       // Spawns
       spawnTimer -= dt; if (spawnTimer <= 0) { spawnEnemy(elapsed); spawnInterval = Math.max(0.65, spawnInterval - 0.0045); spawnTimer = spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies = 24; }
 
-      // Enemies
+      // Enemigos
       for (let i=enemies.length-1;i>=0;i--) {
         const e = enemies[i];
 
@@ -365,7 +413,7 @@
         if (e.ground) { if (e.y + e.h < groundY) e.y += GRAVITY*dt; if (e.y + e.h > groundY) e.y = groundY - e.h; }
         if (e.animHold > 0) e.animHold -= dt;
 
-        // Enemy shooting (cambia anim a 'atk' un instante)
+        // Disparos enemigos
         if (e.projectile && (e.shootCD !== undefined)) {
           e.shootCD -= dt;
           if (e.shootCD <= 0 && e.x - cameraX < W && e.x - cameraX > 100) {
@@ -383,7 +431,7 @@
         if (e.x + e.w < cameraX - 40) { enemies.splice(i,1); continue; }
       }
 
-      // Enemy projectiles
+      // Proyectiles enemigos
       for (let i=enemyProjectiles.length-1;i>=0;i--) {
         const p = enemyProjectiles[i];
         p.vy += (p.gravity||0)*dt; p.x += p.vx*dt; p.y += p.vy*dt;
@@ -391,7 +439,7 @@
         if (p.x + p.w < cameraX - 40) { enemyProjectiles.splice(i,1); continue; }
       }
 
-      // Collisions: stones vs enemies
+      // Colisiones piedras vs enemigos
       for (let i=enemies.length-1;i>=0;i--) {
         const e = enemies[i];
         for (let j=stones.length-1;j>=0;j--) {
@@ -400,13 +448,13 @@
         }
       }
 
-      // Collisions: player vs enemies/projectiles
+      // Colisiones jugador
       if (player.inv > 0) player.inv -= dt; if (player.inv < 0) player.inv = 0;
       const pHit = { x: player.x, y: player.y + (player.duck?10:0), w: player.w, h: player.duck?player.h-10:player.h };
       for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
       for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
 
-      // Time & HUD
+      // HUD
       timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000;
       hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
       hudScore.textContent = `Puntos: ${score}`;
@@ -415,13 +463,26 @@
     function damagePlayer(dmg) { player.hearts = Math.max(0, player.hearts - dmg); player.inv = PLAYER.invTime; if (player.hearts <= 0) gameOver(); updateHearts(); }
     function updateHearts() { const hearts = '❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent = `Vida: ${hearts}`; }
 
-    // ======== Draw ========
+    // ======== Render ========
     function render(dt) {
       drawBackground(dt);
       stones.forEach(s => { ctx.fillStyle = s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
       enemies.forEach(e => drawEnemySprite(e, dt));
       enemyProjectiles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
       drawPlayer(player, dt);
+
+      // Aviso de depuración de sprites
+      if (!SPRITES_READY || SPRITES_FAILED.length) {
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(8, 8, 360, 44);
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '12px monospace';
+        ctx.fillText(`Sprites cargados: ${SPRITES_READY ? 'sí' : 'no'}`, 16, 24);
+        if (SPRITES_FAILED.length) {
+          ctx.fillStyle = '#fca5a5';
+          ctx.fillText(`Faltan: ${SPRITES_FAILED.join(', ')}`, 16, 40);
+        }
+      }
     }
 
     // ======== Loop ========
@@ -434,7 +495,7 @@
       requestAnimationFrame(loop);
     }
 
-    // ======== Game Flow & Audio ========
+    // ======== Flujo & Audio ========
     function startGame() {
       state = 'play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); resetGame(); updateHearts();
       try { bgmLobby.pause(); } catch (e) {}
@@ -443,11 +504,17 @@
       window.focus();
     }
     function gameOver() {
-      state = 'gameover'; const best = getBest(); if (elapsed > best) setBest(elapsed); timeSurvivedEl.textContent = fmtTime(elapsed); bestTimeEl.textContent = fmtTime(getBest()); gameOverOverlay.classList.remove('hidden');
-      try { bgmGame.pause(); } catch (e) {} try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
+      state = 'gameover';
+      const best = getBest(); if (elapsed > best) setBest(elapsed);
+      timeSurvivedEl.textContent = fmtTime(elapsed);
+      bestTimeEl.textContent = fmtTime(getBest());
+      gameOverOverlay.classList.remove('hidden');
+      try { bgmGame.pause(); } catch (e) {}
+      try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
     }
 
     // ======== Input & Boot ========
+    let keys = {};
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') e.preventDefault();
       keys[e.key] = true;
@@ -462,7 +529,7 @@
     // Best time
     bestStart.textContent = fmtTime(getBest());
 
-    // Autoplay-friendly lobby music
+    // Música lobby (autoplay-friendly)
     let triedLobby = false;
     function ensureLobbyPlay(){
       if (state !== 'start' || triedLobby) return;
@@ -475,7 +542,7 @@
     window.addEventListener('pointermove', ensureLobbyPlay);
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
-    // Begin loop
+    // Inicia loop
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
   })();
   </script>
