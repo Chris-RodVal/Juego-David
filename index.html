@@ -166,7 +166,12 @@
     (function waitSprites(){
       const imgs = Object.values(SPRITES);
       let loaded = imgs.filter(i => i.complete && i.naturalWidth > 0).length;
-      if (loaded === imgs.length) { SPRITES_READY = true; return; }
+      if (loaded === imgs.length) { 
+        SPRITES_READY = true; 
+        // FIX: corre auditoría al cargar todos los PNG
+        setTimeout(auditAnimations, 0); // eslint-disable-line no-undef
+        return; 
+      }
       imgs.forEach((im, idx) => {
         if (im.complete && im.naturalWidth === 0) {
           const key = Object.keys(SPRITES)[idx];
@@ -292,23 +297,60 @@
     }
 
     // ======== Dibujo de sprites (grid multi-fila + fallback) ========
+    // FIX: función robusta que evita cols/rows = 0 → NaN y siempre dibuja algo visible
     function drawSprite(img, fw, fh, frameIndex, x, y, w, h) {
-      // Si la imagen aún no está lista, placeholder
-      if (!(img && img.naturalWidth > 0 && img.naturalHeight > 0)) {
+      const nw = (img && img.naturalWidth)  || 0;
+      const nh = (img && img.naturalHeight) || 0;
+
+      // Si no cargó, placeholder
+      if (!(nw > 0 && nh > 0)) {
         ctx.fillStyle = '#1f2937';
         ctx.fillRect(x|0, y|0, w, h);
         ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1;
         ctx.strokeRect(x|0, y|0, w, h);
         return;
       }
-      // Calcula columnas/filas automáticamente según tamaño real
-      const cols = Math.max(1, Math.floor(img.naturalWidth  / fw));
-      const rows = Math.max(1, Math.floor(img.naturalHeight / fh));
+
+      // Auto-ajuste de fh cuando la hoja no coincide con lo esperado
+      let effFh = fh;
+      if (nh % effFh !== 0) {
+        if (nh % 48 === 0) effFh = 48;
+        else if (nh % 32 === 0) effFh = 32;
+        else effFh = nh; // una sola fila alta (fallback)
+      }
+
+      let cols = Math.floor(nw / fw);
+      let rows = Math.floor(nh / effFh);
+
+      // Si el ancho no da al menos 1 col, fuerza 1 col y usa todo el ancho
+      if (cols < 1) { cols = 1; }
+      if (rows < 1) { rows = 1; }
+
       const total = cols * rows;
-      const f = Math.max(0, Math.min(frameIndex|0, total - 1));
+
+      // Si sigue siendo inválido, dibuja imagen completa (mejor que nada)
+      if (!(total > 0)) {
+        ctx.drawImage(img, 0, 0, nw, nh, x|0, y|0, w, h);
+        return;
+      }
+
+      const f = Math.max(0, Math.min((frameIndex|0), total - 1));
       const sx = (f % cols) * fw;
-      const sy = Math.floor(f / cols) * fh;
-      ctx.drawImage(img, sx, sy, fw, fh, x|0, y|0, w, h);
+      const sy = Math.floor(f / cols) * effFh;
+
+      // Clamp de fuente por seguridad (evita NaN/negativos o fuera de rango)
+      const sw = Math.max(0, Math.min(fw, nw - sx));
+      const sh = Math.max(0, Math.min(effFh, nh - sy));
+
+      if (sw <= 0 || sh <= 0 || !isFinite(sx) || !isFinite(sy)) {
+        // Último recurso: dibuja la imagen completa
+        console.warn('[drawSprite] Grid inválido, usando fallback completo', { nw, nh, fw, fh, effFh, cols, rows, f, sx, sy, sw, sh });
+        ctx.drawImage(img, 0, 0, nw, nh, x|0, y|0, w, h);
+        return;
+      }
+
+      ctx.drawImage(img, sx, sy, sw, sh, x|0, y|0, w, h);
     }
 
     // ======== Render entidades ========
@@ -345,7 +387,8 @@
       }
 
       const px = (e.x - cameraX), py = e.y;
-      drawSprite(SPRITES[e.type], def.fw, def.fh, seq[e.frame]||0, px, py, e.w, e.h);
+      const frameId = (seq && seq.length) ? seq[e.frame] : 0;
+      drawSprite(SPRITES[e.type], def.fw, def.fh, frameId||0, px, py, e.w, e.h);
     }
 
     // ======== Spawning ========
@@ -549,6 +592,60 @@
 
     // Inicia loop
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
+
+    // ======== Auditoría de hojas de sprites ========
+    // FIX: herramientas para ver datos reales y detectar desajustes
+    function sheetInfo(img, fw, fh) {
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      const rowsByFh = nh % fh === 0 ? Math.floor(nh / fh) : (nh % 48 === 0 ? Math.floor(nh/48) : (nh % 32 === 0 ? Math.floor(nh/32) : 1));
+      const effFh = nh % fh === 0 ? fh : (nh % 48 === 0 ? 48 : (nh % 32 === 0 ? 32 : nh));
+      const cols = Math.max(1, Math.floor(nw / (fw || nw)));
+      const rows = Math.max(1, rowsByFh);
+      return { nw, nh, fw, fh, effFh, cols, rows, total: cols*rows };
+    }
+    function seqMax(seqs) {
+      let m = 0;
+      for (const k in seqs) if (Array.isArray(seqs[k])) for (const v of seqs[k]) m = Math.max(m, v|0);
+      return m;
+    }
+    function auditAnimations(){
+      const table = [];
+      const push = (name, img, fw, fh, seqs) => {
+        if (!(img && img.naturalWidth)) { 
+          table.push({name, status:'NO LOAD'}); 
+          return; 
+        }
+        const info = sheetInfo(img, fw, fh);
+        const maxIdx = seqMax(seqs);
+        const warn = maxIdx >= info.total ? `⚠︎ seq.max=${maxIdx} >= total=${info.total}` : '';
+        table.push({
+          name,
+          size: `${info.nw}×${info.nh}`,
+          tile: `fw=${fw}, fh=${fh} (effFh=${info.effFh})`,
+          grid: `${info.cols}×${info.rows} (total=${info.total})`,
+          maxSeqIdx: maxIdx,
+          warn
+        });
+        if (warn) console.warn(`[ANIM] ${name}: ${warn}`, info);
+      };
+
+      push('david', SPRITES.david, PLAYER_ANIM.fw, PLAYER_ANIM.fh, PLAYER_ANIM);
+      push('soldado', SPRITES.soldado, ENEMY_ANIMS.soldado.fw, ENEMY_ANIMS.soldado.fh, ENEMY_ANIMS.soldado);
+      push('arquero',  SPRITES.arquero, ENEMY_ANIMS.arquero.fw, ENEMY_ANIMS.arquero.fh, ENEMY_ANIMS.arquero);
+      push('bruto',    SPRITES.bruto, ENEMY_ANIMS.bruto.fw, ENEMY_ANIMS.bruto.fh, ENEMY_ANIMS.bruto);
+      push('ladron',   SPRITES.ladron, ENEMY_ANIMS.ladron.fw, ENEMY_ANIMS.ladron.fh, ENEMY_ANIMS.ladron);
+      push('leon',     SPRITES.leon, ENEMY_ANIMS.leon.fw, ENEMY_ANIMS.leon.fh, ENEMY_ANIMS.leon);
+      push('oso',      SPRITES.oso, ENEMY_ANIMS.oso.fw, ENEMY_ANIMS.oso.fh, ENEMY_ANIMS.oso);
+      push('demonio',  SPRITES.demonio, ENEMY_ANIMS.demonio.fw, ENEMY_ANIMS.demonio.fh, ENEMY_ANIMS.demonio);
+      push('roca',     SPRITES.roca, ENEMY_ANIMS.roca.fw, ENEMY_ANIMS.roca.fh, ENEMY_ANIMS.roca);
+
+      console.table(table);
+      return table;
+    }
+
+    // Helpers expuestos en consola
+    window.__erdAudit = auditAnimations;
+    window.__erdDims = () => Object.entries(SPRITES).map(([k,i]) => ({k, w:i.naturalWidth, h:i.naturalHeight}));
   })();
   </script>
 </body>
