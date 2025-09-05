@@ -116,8 +116,8 @@
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
 
-    // Tamaño jugador (AJUSTE v3) // FIX scale
-    const PLAYER = { w: 14, h: 22, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
+    // Tamaño jugador (visible en mundo)  // FIX scale: volver a tamaño razonable
+    const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
@@ -255,16 +255,16 @@
     }
 
     // ===== Tipos =====
-    // ENEMY_TYPES (AJUSTE v3; NO tocar demonio) // FIX scale
+    // ENEMY_TYPES (tamaños visibles coherentes)
     const ENEMY_TYPES = [
-      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:13, h:22, ground:true },
-      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:12, h:20, ground:true, shootCooldown:1.3, projectile:'flecha' },
-      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:18, h:28, ground:true },
-      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:11, h:18, ground:true },
-      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:20, h:14, ground:true },
-      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:24, h:17, ground:true },
+      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
+      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
+      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:30, h:44, ground:true },
+      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:19, h:32, ground:true },
+      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true },
+      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true },
       { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, ground:false, flyer:true, shootCooldown:1.5, projectile:'fuego' }, // sin cambios
-      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:12, h:12, ground:true, roller:true }
+      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
     // ===== Proyectiles =====
@@ -339,7 +339,7 @@
       }
     }
 
-    // ===== Dibujo (usa recorte + baseline) =====
+    // ===== Dibujo (pixel-perfect con baseline)
     function drawCell(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S){
@@ -353,16 +353,26 @@
       while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
       const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
 
-      const scaleX = w / info.sw;
-      const scaleY = h / info.sh;
+      // --- Pixel-perfect scale: usa un único factor uniforme y lo "snapea" a pasos de 1/8 ---
+      // Escala ideal según alto lógico:
+      const ideal = h / info.sh;
+      // Snap a 1/8 para evitar micro-variaciones entre frames recortados:
+      const snapped = Math.max(1/8, Math.round(ideal * 8) / 8);
+      const scaleX = snapped;
+      const scaleY = snapped;
+
       const dw = info.sw * scaleX;
       const dh = info.sh * scaleY;
 
+      // Baseline consistente
       const baselineDst = info.baseline * scaleY;
+
+      // Centrado horizontal dentro del box destino (w)
       const dx = (x|0) + ((w - dw) * 0.5);
+      // Alineación al suelo manteniendo baseline recortada
       const dy = (y|0) + (h - baselineDst) - (dh - baselineDst);
 
-      ctx.drawImage(S.img, info.sx, info.sy, info.sw, info.sh, dx, dy, dw, dh);
+      ctx.drawImage(S.img, info.sx, info.sy, info.sw, info.sh, dx|0, dy|0, dw, dh);
     }
 
     function sanitizeAndPick(sheetKey, seqRaw, tick){
