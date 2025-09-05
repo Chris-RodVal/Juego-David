@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El Reino de David: Escape del Valle</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(1200px 600px at 50% -200px, #1b2338 0%, #0a0f1a 55%, #070b18 100%);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+      color: #e5e7eb;
+    }
+    .wrap { max-width: 1200px; margin: 14px auto; padding: 8px 12px; display: grid; place-items: center; gap: 10px; }
+    .stage { position: relative; width: 960px; height: 540px; }
+    canvas#game {
+      width: 960px; height: 540px; image-rendering: pixelated; image-rendering: crisp-edges;
+      background: #090e16; display: block; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    }
+
+    .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
+    .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
+
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+    h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #e2e8f0; text-shadow: 0 0 18px rgba(239,68,68,.18); }
+    .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    button.pixel { appearance: none; border: 0; cursor: pointer; font-weight: 600; padding: 10px 16px; border-radius: 12px; font-size: 14px; background: linear-gradient(180deg,#1f2937,#0f172a); border: 1px solid #374151; color: #e5e7eb; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.25); transition: transform .05s ease, box-shadow .2s ease; }
+    button.pixel:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.35); }
+    button.pixel:active { transform: translateY(1px); }
+    .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
+    .hidden { display: none; }
+
+    /* Controls panel */
+    .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
+    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
+    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
+    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+
+    @media (max-width: 980px) {
+      canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
+      .hud { width: 96vw; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <!-- Música de fondo -->
+      <audio id="bgm" src="musica.mp3" loop preload="auto"></audio>
+      <canvas id="game" width="960" height="540"></canvas>
+
+      <!-- Panel de Controles (toggle con 'i') -->
+      <div id="controlsPanel" class="controls-panel">
+        <h3>Controles</h3>
+        <ul>
+          <li>← / → : Mover</li>
+          <li>↑ : Saltar</li>
+          <li>↓ : Agacharse</li>
+          <li>ESPACIO : Lanzar piedra (honda)</li>
+          <li>P : Pausar</li>
+          <li>I : Mostrar/Ocultar ayuda</li>
+        </ul>
+        <div class="hint">Consejo: esquiva, dispara y mantén la distancia de los brutos y demonios.</div>
+      </div>
+
+      <!-- Start Screen -->
+      <div id="startOverlay" class="overlay">
+        <div class="panel">
+          <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
+          <div class="subtitle">Pixel-arcade con estética <strong>apocalíptica</strong>: cielos rojizos, ceniza y ruinas. Sobrevive, recolecta y enfrenta hordas.</div>
+          <div class="btns">
+            <button id="btnStart" class="pixel">Iniciar</button>
+          </div>
+          <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
+          <div class="muted" style="margin-top:8px">Controles: ←/→ mover, ↑ saltar, ↓ agacharse, ESPACIO honda, P pausar, I ayuda</div>
+        </div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverOverlay" class="overlay hidden">
+        <div class="panel">
+          <h1 class="title">El valle te ha reclamado…</h1>
+          <div class="subtitle">Tiempo sobrevivido: <span id="timeSurvived">00:00</span> · Record: <span id="bestTime">00:00</span></div>
+          <div class="btns">
+            <button id="btnRestart" class="pixel">Reiniciar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud" id="hud">
+      <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤</div>
+      <div class="tag" id="hudTime">Tiempo: 00:00</div>
+      <div class="tag" id="hudScore">Puntos: 0</div>
+      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · I: ayuda</div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    // ======== Canvas & Context ========
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // ======== UI Elements ========
+    const startOverlay = document.getElementById('startOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
+    const bestStart = document.getElementById('bestStart');
+    const bestTimeEl = document.getElementById('bestTime');
+    const timeSurvivedEl = document.getElementById('timeSurvived');
+
+    const hudHealth = document.getElementById('hudHealth');
+    const hudTime = document.getElementById('hudTime');
+    const hudScore = document.getElementById('hudScore');
+
+    const controlsPanel = document.getElementById('controlsPanel');
+    const bgm = document.getElementById('bgm');
+
+    // ======== Game Constants ========
+    const W = canvas.width, H = canvas.height;
+    const GRAVITY = 2400;        // px/s^2
+    const FRICTION = 0.85;       // ground slide
+
+    const PLAYER = { w: 28, h: 42, speed: 270, jump: 800, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.36 };
+
+    const COLORS = {
+      skyTop: '#1a1e2a', skyBot: '#0b0f19',
+      ash: 'rgba(248,250,252,.6)',
+      glow: 'rgba(248,113,113,.15)',
+      ruin1: '#312e2e', ruin2: '#403a3a', ruin3: '#5b4d4d',
+      grass1: '#284232', grass2: '#365f45', dirt1: '#3a271c', dirt2: '#4a3223', stone: '#6b7280',
+      uiHeart: '#ef4444', uiText: '#cbd5e1', skin: '#e8c39e', hair: '#40342e', tunic: '#736b5e'
+    };
+
+    // Enemy catalog (more realistic silhouettes via simple shading)
+    const ENEMY_TYPES = [
+      { key:'soldado', hp:2, speed:120, damage:1, score:20, w:24, h:38, ground:true, draw:(e)=>drawHuman(e, '#6b7280', '#3f3f46') },
+      { key:'arquero', hp:2, speed:95, damage:1, score:30, w:22, h:36, ground:true, shootCooldown:1.5, projectile:'flecha', draw:(e)=>drawHuman(e, '#7c5f3d', '#4b3b2a', true) },
+      { key:'bruto', hp:5, speed:70, damage:2, score:60, w:34, h:50, ground:true, draw:(e)=>drawHuman(e, '#374151', '#111827', false, true) },
+      { key:'ladron', hp:1, speed:185, damage:1, score:25, w:20, h:34, ground:true, draw:(e)=>drawHuman(e, '#b45309', '#7c2d12') },
+      { key:'leon', hp:3, speed:150, damage:2, score:50, w:36, h:26, ground:true, draw:(e)=>drawBeast(e, '#a16207', '#854d0e') },
+      { key:'oso', hp:5, speed:90, damage:3, score:70, w:44, h:30, ground:true, draw:(e)=>drawBeast(e, '#6b7280', '#374151', true) },
+      { key:'demonio', hp:3, speed:120, damage:2, score:80, w:32, h:26, ground:false, flyer:true, shootCooldown:1.7, projectile:'fuego', draw:(e)=>drawDemon(e, '#ef4444', '#7f1d1d') },
+      { key:'roca', hp:3, speed:165, damage:2, score:30, w:26, h:26, ground:true, roller:true, draw:(e)=>drawRock(e, COLORS.stone) }
+    ];
+
+    const PROJ = {
+      piedra: { speed: 640, w: 8, h: 8, color: '#d1d5db', gravity:0, from:'player' },
+      flecha: { speed: 370, w: 12, h: 4, color: '#fcd34d', gravity:0, from:'enemy' },
+      fuego:  { speed: 290, w: 10, h:10, color: '#fb7185', gravity: 520, from:'enemy' }
+    };
+
+    // ======== State ========
+    let state = 'start';
+    let keys = {};
+    let cameraX = 0;
+
+    let player, stones = [], enemies = [], enemyProjectiles = [];
+    let timeStart = 0, timeNow = 0, elapsed = 0; // seconds
+    let score = 0, paused = false;
+    let spawnTimer = 0, spawnInterval = 1.15; // slightly denser for apocalyptic vibe
+
+    const groundY = H - 78;
+
+    // ======== Utils ========
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const chance = (p) => Math.random() < p;
+    const fmtTime = (sec) => { const m = Math.floor(sec / 60); const s = Math.floor(sec % 60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; };
+    const getBest = () => +localStorage.getItem('erd_best') || 0;
+    const setBest = (v) => localStorage.setItem('erd_best', String(Math.floor(v)));
+
+    function resetGame() {
+      player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0 };
+      stones.length = 0; enemies.length = 0; enemyProjectiles.length = 0;
+      score = 0; cameraX = 0; paused = false;
+      timeStart = performance.now(); timeNow = timeStart; elapsed = 0;
+      spawnTimer = 0; spawnInterval = 1.15;
+    }
+
+    // ======== Background / Apocalyptic Scene ========
+    let ashParticles = [];
+    function drawBackground(dt) {
+      const g = ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0, COLORS.skyTop);
+      g.addColorStop(.6, '#1a1420');
+      g.addColorStop(1, COLORS.skyBot);
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+      // red glow horizon
+      ctx.fillStyle = COLORS.glow; ctx.fillRect(0, H-160, W, 160);
+
+      // distant ruins
+      drawRuins(COLORS.ruin1, 0.18, 230);
+      drawRuins(COLORS.ruin2, 0.28, 190);
+      drawRuins(COLORS.ruin3, 0.38, 150);
+
+      // ash particles floating
+      if (ashParticles.length < 120 && chance(0.6)) {
+        ashParticles.push({ x: rnd(-40, W+40), y: rnd(-20, H-40), v: rnd(4, 18), a: rnd(0.5, 1.2) });
+      }
+      ctx.fillStyle = COLORS.ash;
+      for (let i=ashParticles.length-1;i>=0;i--) {
+        const p = ashParticles[i];
+        p.y += p.a * 8 * dt; p.x -= p.a * 12 * dt;
+        ctx.fillRect((p.x - cameraX*0.2)|0, p.y|0, 1, 1);
+        if (p.y > H || p.x < -60) ashParticles.splice(i,1);
+      }
+
+      // ground
+      drawGround();
+    }
+
+    function drawRuins(color, speed, height) {
+      const offset = (cameraX * speed) % W;
+      ctx.fillStyle = color;
+      for (let i=-1;i<3;i++) {
+        const baseX = i*W - offset;
+        for (let b=0;b<5;b++) {
+          const x = baseX + b*220 + rnd(-20,20);
+          const w = rnd(60, 120);
+          const h = height + rnd(-30, 30);
+          ctx.fillRect(x, groundY - h, w, h);
+          // crenels / broken top
+          ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
+        }
+      }
+    }
+
+    function drawGround() {
+      ctx.fillStyle = COLORS.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
+      ctx.fillStyle = COLORS.dirt2;
+      for (let y=groundY+2; y<H; y+=4) {
+        for (let x=Math.floor((-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
+      }
+      for (let x=-((cameraX|0)%16); x<W; x+=16) {
+        ctx.fillStyle = COLORS.grass1; ctx.fillRect(x, groundY-9, 16, 9);
+        ctx.fillStyle = COLORS.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle = COLORS.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
+    }
+
+    // ======== Rendering: Entities ========
+    function drawPlayer(p) {
+      const px = (p.x - cameraX)|0, py = (p.y)|0, w=p.w, h=p.h;
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, w+10, 3);
+      // legs (pants)
+      ctx.fillStyle = '#3b3b3b'; ctx.fillRect(px+6, py+h-14, w-12, 14);
+      // torso (tunic with shading)
+      const grd = ctx.createLinearGradient(px, py+10, px+w, py+h);
+      grd.addColorStop(0, COLORS.tunic); grd.addColorStop(1, '#4a443b');
+      ctx.fillStyle = grd; ctx.fillRect(px, py+8, w, h-8);
+      // head
+      ctx.fillStyle = COLORS.skin; ctx.fillRect(px+8, py-10, 12, 10);
+      // hair
+      ctx.fillStyle = COLORS.hair; ctx.fillRect(px+8, py-10, 12, 4);
+      // sling strap
+      ctx.fillStyle = '#cbd5e1'; ctx.fillRect(px+3, py+10, 3, 16);
+      if (p.duck) { ctx.fillStyle = 'rgba(147,197,253,.2)'; ctx.fillRect(px, py, w, h); }
+      if (p.inv > 0 && Math.floor(p.inv*20)%2===0) { ctx.globalAlpha = 0.65; ctx.fillStyle = '#fca5a5'; ctx.fillRect(px-1, py-1, w+2, h+2); ctx.globalAlpha = 1; }
+    }
+
+    function drawHuman(e, cloth, armor, bow=false, bulky=false) {
+      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x-4, groundY-4, w+8, 3);
+      // legs
+      ctx.fillStyle = '#2f2f2f'; ctx.fillRect(x+6, y+h-12, w-12, 12);
+      // torso
+      const g = ctx.createLinearGradient(x,y+6,x+w,y+h);
+      g.addColorStop(0, cloth); g.addColorStop(1, armor);
+      ctx.fillStyle = g; ctx.fillRect(x, y+6, w, h-6);
+      // head
+      ctx.fillStyle = COLORS.skin; ctx.fillRect(x + (w/2-6)|0, y-8, 12, 8);
+      // gear
+      if (bulky) { ctx.fillStyle = '#6b7280'; ctx.fillRect(x-2, y+8, 4, h-10); }
+      if (bow) { ctx.fillStyle = '#a16207'; ctx.fillRect(x+w-3, y+12, 2, 14); }
+    }
+    function drawBeast(e, c1, c2, big=false) {
+      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
+      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x-6, groundY-4, w+12, 3);
+      ctx.fillStyle=c1; ctx.fillRect(x, y+4, w, h-4);
+      ctx.fillStyle=c2; ctx.fillRect(x+4, y, w-8, 10);
+      if (big) { ctx.fillStyle='#9ca3af'; ctx.fillRect(x+w-8, y+6, 4, 4); }
+    }
+    function drawDemon(e, c1, c2) {
+      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
+      ctx.fillStyle=c1; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle=c2; ctx.fillRect(x-6, y+6, 12, 4); ctx.fillRect(x+w-6, y+6, 12, 4);
+      ctx.fillStyle='#f59e0b'; ctx.fillRect(x+Math.floor(w/2)-2, y+4, 4, 4);
+    }
+    function drawRock(e, rockColor) {
+      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
+      ctx.fillStyle=rockColor; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle='#9ca3af'; ctx.fillRect(x+4, y+6, 6, 4);
+      ctx.fillStyle='#4b5563'; ctx.fillRect(x+12, y+12, 6, 6);
+    }
+    function drawProjectile(p) { const x=(p.x-cameraX)|0, y=p.y|0; ctx.fillStyle=p.color; ctx.fillRect(x, y, p.w, p.h); }
+
+    // ======== Spawning ========
+    function pickEnemyType(timeSec) {
+      const t = timeSec, pool = [];
+      push('soldado', 4); push('ladron', 3); push('arquero', 3); push('roca', 2);
+      if (t > 20) { push('bruto', 3); push('leon', 3); }
+      if (t > 35) { push('oso', 2); }
+      if (t > 25) { push('demonio', 2); }
+      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
+      const key = pool[(Math.random()*pool.length)|0];
+      return ENEMY_TYPES.find(e=>e.key===key);
+    }
+    function spawnEnemy(timeSec) {
+      const t = pickEnemyType(timeSec);
+      const e = { type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + rnd(20, 220), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: rnd(0, Math.PI*2) };
+      e.y = e.ground ? (groundY - e.h) : rnd(120, 260);
+      enemies.push(e);
+    }
+
+    // ======== Physics & Update ========
+    function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+
+    function update(dt) {
+      if (paused) return;
+      cameraX += (player.x - cameraX - 240) * 0.06;
+
+      // Input
+      const accel = player.onGround ? PLAYER.speed : PLAYER.speed * 0.8;
+      if (keys['ArrowLeft'] || keys['a']) player.vx = -accel;
+      if (keys['ArrowRight'] || keys['d']) player.vx = accel;
+      if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])) player.vx *= player.onGround ? FRICTION : 1;
+      if ((keys['ArrowUp']||keys['w']) && player.onGround) { player.vy = -PLAYER.jump; player.onGround = false; }
+      player.duck = !!(keys['ArrowDown']||keys['s']);
+
+      // Shoot
+      player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
+      if (keys[' '] && player.canShoot===0) {
+        stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
+        player.canShoot = PLAYER.stoneCooldown;
+      }
+
+      // Physics
+      player.vy += GRAVITY * dt;
+      player.x += player.vx * dt; player.y += player.vy * dt;
+      const ph = player.duck ? player.h-10 : player.h;
+      if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; }
+      if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
+
+      // Stones
+      for (let i=stones.length-1;i>=0;i--) { const s=stones[i]; s.x += s.vx*dt; s.y += s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
+
+      // Spawns
+      spawnTimer -= dt; if (spawnTimer <= 0) { spawnEnemy(elapsed); spawnInterval = Math.max(0.7, spawnInterval - 0.004); spawnTimer = spawnInterval + rnd(-0.25, 0.25); }
+
+      // Enemies
+      for (let i=enemies.length-1;i>=0;i--) {
+        const e = enemies[i];
+        if (e.flyer) { e.vx = -e.speed; e.vy = Math.sin((elapsed + e.phase) * 2.0) * 20; e.y += e.vy * dt; }
+        else if (e.roller) { e.vx = -e.speed; }
+        else { e.vx = -e.speed + (e.type==='ladron' ? -40 : 0); }
+        e.x += e.vx * dt;
+        if (e.ground) { if (e.y + e.h < groundY) e.y += GRAVITY*dt; if (e.y + e.h > groundY) e.y = groundY - e.h; }
+
+        // Enemy shooting
+        if (e.projectile && (e.shootCD !== undefined)) {
+          e.shootCD -= dt; if (e.shootCD <= 0 && e.x - cameraX < W && e.x - cameraX > 100) {
+            if (e.projectile === 'flecha') {
+              enemyProjectiles.push({ x: e.x, y: e.y + 8, w: PROJ.flecha.w, h: PROJ.flecha.h, vx: -PROJ.flecha.speed, vy: 0, color: PROJ.flecha.color, from:'enemy' });
+            } else if (e.projectile === 'fuego') {
+              const vy = rnd(80, 140);
+              enemyProjectiles.push({ x: e.x, y: e.y + 10, w: PROJ.fuego.w, h: PROJ.fuego.h, vx: rnd(-60,-120), vy: vy, color: PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
+            }
+            e.shootCD = e.tRef.shootCooldown + rnd(-0.35, 0.35);
+          }
+        }
+        if (e.x + e.w < cameraX - 40) { enemies.splice(i,1); continue; }
+      }
+
+      // Enemy projectiles
+      for (let i=enemyProjectiles.length-1;i>=0;i--) {
+        const p = enemyProjectiles[i];
+        p.vy += (p.gravity||0)*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)) { enemyProjectiles.splice(i,1); continue; }
+        if (p.x + p.w < cameraX - 40) { enemyProjectiles.splice(i,1); continue; }
+      }
+
+      // Collisions: stones vs enemies
+      for (let i=enemies.length-1;i>=0;i--) {
+        const e = enemies[i];
+        for (let j=stones.length-1;j>=0;j--) {
+          const s = stones[j];
+          if (rectsOverlap(e, s)) { e.hp -= 1; stones.splice(j,1); score += 5; if (e.hp <= 0) { score += e.score; enemies.splice(i,1); break; } }
+        }
+      }
+
+      // Collisions: player vs enemies/projectiles
+      if (player.inv > 0) player.inv -= dt; if (player.inv < 0) player.inv = 0;
+      const pHit = { x: player.x, y: player.y + (player.duck?10:0), w: player.w, h: player.duck?player.h-10:player.h };
+      for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
+      for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
+
+      // Time & HUD
+      timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000;
+      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
+      hudScore.textContent = `Puntos: ${score}`;
+    }
+
+    function damagePlayer(dmg) { player.hearts = Math.max(0, player.hearts - dmg); player.inv = PLAYER.invTime; if (player.hearts <= 0) gameOver(); updateHearts(); }
+    function updateHearts() { const hearts = '❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent = `Vida: ${hearts}`; }
+
+    // ======== Draw ========
+    function render(dt) {
+      drawBackground(dt);
+      stones.forEach(drawProjectile);
+      enemies.forEach(e => e.tRef.draw(e));
+      enemyProjectiles.forEach(drawProjectile);
+      drawPlayer(player);
+    }
+
+    // ======== Loop ========
+    let last = 0;
+    function loop(ts) {
+      const now = ts || performance.now();
+      const dt = Math.min(0.033, (now - last) / 1000) || 0.016;
+      last = now;
+      if (state === 'play') { update(dt); render(dt); }
+      requestAnimationFrame(loop);
+    }
+
+    // ======== Game Flow ========
+    function startGame() {
+      state = 'play';
+      startOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+      resetGame(); updateHearts();
+      // Música
+      try { bgm.volume = 0.4; bgm.play().catch(()=>{}); } catch (e) {}
+      window.focus();
+    }
+    function gameOver() {
+      state = 'gameover';
+      const best = getBest(); if (elapsed > best) setBest(elapsed);
+      timeSurvivedEl.textContent = fmtTime(elapsed);
+      bestTimeEl.textContent = fmtTime(getBest());
+      gameOverOverlay.classList.remove('hidden');
+      try { bgm.pause(); bgm.currentTime = 0; } catch (e) {}
+    }
+
+    // ======== Input ========
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') e.preventDefault();
+      keys[e.key] = true;
+      if ((e.key === 'p' || e.key === 'P') && state==='play') paused = !paused;
+      if (e.key === 'i' || e.key === 'I') controlsPanel.classList.toggle('hidden');
+    });
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+    btnStart.addEventListener('click', startGame);
+    btnRestart.addEventListener('click', startGame);
+
+    // Init best time on start screen
+    bestStart.textContent = fmtTime(getBest());
+
+    // Begin loop
+    requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
+  })();
+  </script>
+</body>
+</html>
