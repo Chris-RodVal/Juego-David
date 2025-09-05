@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>El Reino de David: Escape del Valle</title>
 
-  <!-- Preload (por si el fallback HTMLAudio es usado) -->
+  <!-- Preload para fallback HTMLAudio -->
   <link rel="preload" as="audio" href="musica.mp3">
   <link rel="preload" as="audio" href="audio1.mp3">
 
@@ -48,7 +48,7 @@
 <body>
   <div class="wrap">
     <div class="stage">
-      <!-- Fallback <audio> (se usará si WebAudio no está disponible) -->
+      <!-- Fallback <audio> (si WebAudio no disponible) -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
@@ -126,9 +126,9 @@
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     // Escala visual global
-    const SPRITE_SCALE = 0.64; // ajústalo 0.58–0.70 a gusto
+    const SPRITE_SCALE = 0.64; // 0.58–0.70 a gusto
 
-    // Ajustes visuales por sprite (no afectan colisión): {scaleMul, yNudge}
+    // Ajustes visuales por sprite (no afectan colisión)
     const VISUAL_TWEAKS = {
       bruto:   { scaleMul: 0.95, yNudge: 0 },
       leon:    { scaleMul: 0.92, yNudge: 0 },
@@ -149,7 +149,7 @@
       roca:    "Roca.png",
     };
 
-    // Si algún archivo es spritesheet real, cámbialo aquí (ej. {cols:6,rows:4})
+    // Si algún archivo es spritesheet real, cámbialo aquí
     const GRID = {
       david:   { cols: 1, rows: 1 },
       soldado: { cols: 1, rows: 1 },
@@ -165,41 +165,53 @@
     // ===== Carga + recorte =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
+    const ALPHA_THRESHOLD = 24; // sube a 32 si hay halos
 
-    function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+    function loadImage(src){
+      return new Promise((res, rej)=>{
+        const im=new Image();
+        im.onload=()=>res(im);
+        im.onerror=rej;
+        im.src=src;
+      });
+    }
 
     function buildGridWithTrim(key, img){
       const {cols, rows} = GRID[key];
       const fw = Math.floor(img.naturalWidth / cols);
       const fh = Math.floor(img.naturalHeight / rows);
 
-      const tmp = document.createElement('canvas'); tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+      const tmp = document.createElement('canvas');
+      tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
       const tg = tmp.getContext('2d', {willReadFrequently:true});
       tg.drawImage(img,0,0);
-      const pixels = tg.getImageData(0,0,tmp.width,tmp.height).data;
+      const data = tg.getImageData(0,0,tmp.width,tmp.height).data;
 
       function cellInfo(c,r){
-        const sx=c*fw, sy=r*fh;
+        const sx0=c*fw, sy0=r*fh;
         let minX=fw, minY=fh, maxX=-1, maxY=-1;
+
         for(let y=0;y<fh;y++){
-          const gy=sy+y;
+          const gy=sy0+y;
           for(let x=0;x<fw;x++){
-            const gx=sx+x;
-            const a=pixels[(gy*tmp.width + gx)*4 + 3];
-            if(a>0){
-              if(x<minX)minX=x;
-              if(y<minY)minY=y;
-              if(x>maxX)maxX=x;
-              if(y>maxY)maxY=y;
+            const gx=sx0+x;
+            const a=data[(gy*tmp.width + gx)*4 + 3];
+            if(a>ALPHA_THRESHOLD){
+              if(x<minX)minX=x; if(y<minY)minY=y;
+              if(x>maxX)maxX=x; if(y>maxY)maxY=y;
             }
           }
         }
-        if(maxX<0||maxY<0){ // todo transparente
-          return { sx, sy, sw:fw, sh:fh, empty:true, foot:fh-1 };
+
+        if(maxX<0||maxY<0){
+          return { sx:sx0, sy:sy0, sw:fw, sh:fh, foot:fh-1, empty:true };
         }
-        const sw=maxX-minX+1, sh=maxY-minY+1;
-        const foot=maxY; // píxel inferior con alfa>0
-        return { sx:sx+minX, sy:sy+minY, sw, sh, empty:false, foot };
+
+        const sw = maxX-minX+1;
+        const sh = maxY-minY+1;
+        const foot = maxY; // píxel inferior con alfa
+
+        return { sx:sx0+minX, sy:sy0+minY, sw, sh, foot, empty:false };
       }
 
       const frames=[];
@@ -233,27 +245,24 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ===== Dibujo con anclaje al suelo por “foot” =====
+    // ===== Dibujo con anclaje al suelo =====
     function drawTrimmed(sheetKey, frameIndex, x, y, w, h, scaleMul=1, yNudge=0){
       const S=Sheets[sheetKey];
       if(!S){ ctx.fillStyle='#334155'; ctx.fillRect(x|0,y|0,w,h); return; }
-      const f=S.frames[Math.max(0, Math.min(frameIndex|0, S.total-1))] || {sx:0,sy:0,sw:S.fw,sh:S.fh,foot:S.fh-1};
+      const f=S.frames[Math.max(0, Math.min(frameIndex|0, S.total-1))];
 
-      // escala basada en el contenido real (recorte) + multiplicadores
+      // Escala por contenido real
       const base = Math.min(w / f.sw, h / f.sh) * SPRITE_SCALE * (scaleMul||1);
-      const scale = Math.max(0.25, Math.round(base*4)/4);
+      const scale = Math.max(0.25, Math.round(base*4)/4); // snapping 0.25x
 
-      const dw=Math.max(1, Math.round(f.sw*scale));
-      const dh=Math.max(1, Math.round(f.sh*scale));
+      const dw = Math.max(1, Math.round(f.sw * scale));
+      const dh = Math.max(1, Math.round(f.sh * scale));
 
-      // Altura del recorte por encima del “pie” real
-      const footOffset = f.sh - (f.foot - (f.sy % S.fh)) - 1; // 0..sh-1
-      // Queremos que el “pie real” coincida con la base del box (y+h)
-      const dy = Math.round(y + h - (dh - footOffset*scale)) + (yNudge|0);
+      // Centrar y apoyar el "pie" en la base del box
+      const dx = Math.round(x + (w - dw) * 0.5);
+      const dy = Math.round(y + h - dh + (yNudge||0));
 
-      const dx = Math.round(x + (w - dw)*0.5);
-
-      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy - dh, dw, dh);
+      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy, dw, dh);
     }
 
     // ===== Player / Enemigos =====
@@ -472,65 +481,66 @@
 
     // ===== Audio: WebAudio para arranque instantáneo =====
     const AudioKit = (() => {
-      let ctx=null, lobbyBuf=null, gameBuf=null, loseBuf=null, current=null;
-      async function ensureCtx(){ if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); } return ctx; }
-      async function loadBuffer(url){
-        const c=await ensureCtx();
-        const res=await fetch(url); const ab=await res.arrayBuffer();
-        return new Promise((resolve,reject)=>{ c.decodeAudioData(ab, resolve, reject); });
+      let ctx=null, gameBuf=null, current=null, priming=false, ready=false;
+
+      async function ensureCtx(){
+        if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); }
+        if (ctx.state==='suspended') await ctx.resume();
+        return ctx;
       }
-      function playLoop(buf, vol=0.5){
-        if(!buf||!ctx) return null;
-        const src=ctx.createBufferSource(); src.buffer=buf; src.loop=true;
+      async function prime(){
+        if (ready) return true;
+        if (priming) { // espera sin bloquear
+          while(priming) await new Promise(r=>setTimeout(r,30));
+          return ready;
+        }
+        priming = true;
+        try{
+          await ensureCtx();
+          if(!gameBuf){
+            const res = await fetch('musica.mp3', { cache:'force-cache' });
+            const ab  = await res.arrayBuffer();
+            gameBuf   = await ctx.decodeAudioData(ab);
+          }
+          ready = true;
+        }catch(e){ ready=false; }
+        priming = false;
+        return ready;
+      }
+      function playGame(vol=0.45){
+        if (!ready || !ctx) return false;
+        current && current.stop(0);
+        const src=ctx.createBufferSource(); src.buffer=gameBuf; src.loop=true;
         const gain=ctx.createGain(); gain.gain.value=vol;
         src.connect(gain).connect(ctx.destination);
-        src.start(0);
-        return {src,gain};
+        src.start();
+        current = src;
+        return true;
       }
-      function stop(node){ try{node?.src?.stop(0);}catch(_){ } }
-      return {
-        prime: async ()=>{ // llamar tras primera interacción
-          try{
-            await ensureCtx();
-            if (ctx.state==='suspended') await ctx.resume();
-            // Pre-decodifica música de juego; lobby lo dejamos al <audio> (para no duplicar)
-            if(!gameBuf) gameBuf = await loadBuffer('musica.mp3');
-            return true;
-          }catch(e){ return false; }
-        },
-        playGame: (vol=0.45)=>{
-          if(!ctx||!gameBuf) return null;
-          current && stop(current);
-          current = playLoop(gameBuf, vol);
-          return true;
-        },
-        stopCurrent: ()=>{ current && stop(current); current=null; },
-        resume: async()=>{ if(ctx && ctx.state==='suspended') await ctx.resume(); }
-      };
+      function stopCurrent(){ try{ current?.stop(0); }catch{} current=null; }
+
+      return { prime, playGame, stopCurrent, ensureCtx };
     })();
 
     // ===== Flujo & Audio =====
-    function startGame(){
+    async function startGame(){
       state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
       resetGame(); updateHearts();
 
-      // Lobby off
       try{ bgmLobby.pause(); }catch(e){}
 
-      // Intentar WebAudio instantáneo
-      (async ()=>{
-        const ok = await AudioKit.prime();
-        if (ok){
-          AudioKit.playGame(0.45);
-        }else{
-          // Fallback al <audio>
-          try {
-            bgmGameEl.volume = 0.45;
-            bgmGameEl.currentTime = 0;
-            const p=bgmGameEl.play(); if(p&&p.catch) p.catch(()=>{});
-          } catch(e){}
-        }
-      })();
+      await AudioKit.ensureCtx();
+      const ok = await AudioKit.prime();
+      if (ok){
+        AudioKit.playGame(0.45);
+      }else{
+        // Fallback al <audio>
+        try {
+          bgmGameEl.volume = 0.45;
+          bgmGameEl.currentTime = 0;
+          const p=bgmGameEl.play(); if(p&&p.catch) p.catch(()=>{});
+        } catch(e){}
+      }
 
       try{ bgmLose.pause(); bgmLose.currentTime=0; }catch(e){}
       window.focus();
@@ -543,22 +553,21 @@
       bestTimeEl.textContent=fmtTime(getBest());
       gameOverOverlay.classList.remove('hidden');
 
-      // parar música de juego
       AudioKit.stopCurrent();
       try{ bgmGameEl.pause(); }catch(e){}
 
-      // perder
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
     // ===== Input =====
+    let keys={};
     window.addEventListener('keydown', async (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
       if ((e.key==='p'||e.key==='P') && state==='play') paused=!paused;
       if (e.key==='i'||e.key==='I') controlsPanel.classList.toggle('hidden');
       // Prime WebAudio en la primera interacción
-      await AudioKit.prime();
+      AudioKit.prime();
     });
     window.addEventListener('keyup', e=>{ keys[e.key]=false; });
 
@@ -570,7 +579,7 @@
 
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby (autoplay-friendly: tras interacción)
+    // Música lobby + prime temprano
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
@@ -580,10 +589,11 @@
         const p=bgmLobby.play();
         if (p&&p.catch) p.catch(()=>{ triedLobby=false; });
       }catch(e){ triedLobby=false; }
-      // También prime WebAudio aquí
       AudioKit.prime();
     }
-    ['pointerdown','keydown','touchstart','pointermove'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
+    ['pointerdown','keydown','touchstart','pointermove','pointerenter'].forEach(ev=>{
+      window.addEventListener(ev, ensureLobbyPlay, { passive:true });
+    });
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
