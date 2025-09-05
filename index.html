@@ -18,8 +18,10 @@
       width: 960px; height: 540px; image-rendering: pixelated; image-rendering: crisp-edges;
       background: #12070b; display: block; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
     }
+
     .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
+
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
     h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
@@ -30,10 +32,12 @@
     button.pixel:active { transform: translateY(1px); }
     .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
     .hidden { display: none; }
+
     .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
     .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+
     @media (max-width: 980px) {
       canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
       .hud { width: 96vw; }
@@ -43,11 +47,13 @@
 <body>
   <div class="wrap">
     <div class="stage">
+      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
       <canvas id="game" width="960" height="540"></canvas>
 
+      <!-- Panel de Controles (toggle con 'i') -->
       <div id="controlsPanel" class="controls-panel">
         <h3>Controles</h3>
         <ul>
@@ -61,21 +67,27 @@
         <div class="hint">Consejo: mantén distancia, los arqueros y demonios ahora son más agresivos.</div>
       </div>
 
+      <!-- Start Screen -->
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
           <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
-          <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
+          <div class="btns">
+            <button id="btnStart" class="pixel">Iniciar</button>
+          </div>
           <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
           <div class="muted" style="margin-top:8px">Controles: ←/→ mover, ↑ saltar, ↓ agacharse, ESPACIO honda, P pausar, I ayuda</div>
         </div>
       </div>
 
+      <!-- Game Over Screen -->
       <div id="gameOverOverlay" class="overlay hidden">
         <div class="panel">
           <h1 class="title">El valle te ha reclamado…</h1>
           <div class="subtitle">Tiempo sobrevivido: <span id="timeSurvived">00:00</span> · Record: <span id="bestTime">00:00</span></div>
-          <div class="btns"><button id="btnRestart" class="pixel">Reiniciar</button></div>
+          <div class="btns">
+            <button id="btnRestart" class="pixel">Reiniciar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -90,12 +102,12 @@
 
   <script>
   (() => {
-    // ===== Canvas =====
+    // ===== Canvas & Context =====
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
-    // ===== UI =====
+    // ===== UI Elements =====
     const startOverlay   = document.getElementById('startOverlay');
     const gameOverOverlay= document.getElementById('gameOverOverlay');
     const btnStart       = document.getElementById('btnStart');
@@ -103,9 +115,11 @@
     const bestStart      = document.getElementById('bestStart');
     const bestTimeEl     = document.getElementById('bestTime');
     const timeSurvivedEl = document.getElementById('timeSurvived');
+
     const hudHealth = document.getElementById('hudHealth');
     const hudTime   = document.getElementById('hudTime');
     const hudScore  = document.getElementById('hudScore');
+
     const controlsPanel = document.getElementById('controlsPanel');
     const bgmLobby = document.getElementById('bgmLobby');
     const bgmGame  = document.getElementById('bgmGame');
@@ -116,7 +130,7 @@
     const GRAVITY = 2400, FRICTION = 0.85;
     const PLAYER = { w: 30, h: 46, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
-    // ===== Fondo =====
+    // ===== Temas de fondo =====
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
       { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
@@ -136,8 +150,7 @@
       roca: "Roca.png",
     };
 
-    // ===== Grid por sheet (ajustable) =====
-    // Si notas que una hoja tiene otra cantidad, cambia cols/rows aquí y listo.
+    // ===== Grid por sheet =====
     const GRID = {
       david:   { cols: 4, rows: 4 },
       soldado: { cols: 5, rows: 2 },
@@ -151,11 +164,11 @@
     };
 
     // ===== Carga de imágenes =====
-    const Sheets = {}; // { key: {img, fw, fh, cols, rows, total} }
-    let SPRITES_READY = false, SPRITES_FAILED = [];
+    const Sheets = {}; // key -> {img, fw, fh, cols, rows, total}
+    let SPRITES_READY = false;
+    let SPRITES_FAILED = [];
 
     function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
-
     async function loadAll(){
       for (const [key,src] of Object.entries(SOURCES)){
         try{
@@ -175,12 +188,9 @@
     }
     loadAll();
 
-    // ===== Secuencias seguras (se recortan con total disponible) =====
+    // ===== Secuencias =====
     function seqLimit(arr, total){ return arr.filter(i => i < total); }
-
     const PLAYER_SEQ_BASE = { idle:[0,1,0,1], walk:[2,3,0,1], sling:[4,5,6,5] };
-    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
-
     const ENEMY_SEQ_BASE = {
       soldado:{ idle:[0,1,0,1], walk:[2,3,4,2,3,4], atk:[5,6,7,6] },
       arquero:{ idle:[0,1,0,1], walk:[2,3,4,5],     atk:[0,1,2,3] },
@@ -191,19 +201,18 @@
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] },
       roca:{    roll:[0,1,2,3] }
     };
-
     function getSeq(key, anim){
-      const S = Sheets[key];
-      const total = S?.total || 1;
+      const total = Sheets[key]?.total || 1;
       const base = (key==='david') ? PLAYER_SEQ_BASE[anim] : (ENEMY_SEQ_BASE[key]?.[anim]);
-      const fallback = [0];
-      return seqLimit(base || fallback, total).length ? seqLimit(base || fallback, total) : [0];
+      const arr = seqLimit(base || [0], total);
+      return arr.length ? arr : [0];
     }
 
-    // ===== Estado =====
+    // ===== Estado de juego =====
     let state='start', keys={}, cameraX=0;
     let player, stones=[], enemies=[], enemyProjectiles=[];
     let timeStart=0, elapsed=0, score=0, paused=false;
+    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
     let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
     const groundY = H - 78;
 
@@ -214,7 +223,7 @@
     const getBest = ()=> +localStorage.getItem('erd_best') || 0;
     const setBest = v => localStorage.setItem('erd_best', String(Math.floor(v)));
 
-    // ===== Game setup =====
+    // ===== Setup =====
     function resetGame(){
       player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0 };
       stones.length=0; enemies.length=0; enemyProjectiles.length=0;
@@ -267,11 +276,10 @@
       }
     }
 
-    // ===== Dibujo por GRID estable =====
+    // ===== Dibujo GRID =====
     function drawGridFrame(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S || !S.img){
-        // Placeholder si no cargó
         ctx.fillStyle='#1f2937'; ctx.fillRect(x|0,y|0,w,h);
         ctx.strokeStyle='#94a3b8'; ctx.strokeRect(x|0,y|0,w,h);
         return;
@@ -281,18 +289,9 @@
       const col = f % S.cols;
       const row = Math.floor(f / S.cols);
       const sx = col * S.fw, sy = row * S.fh;
-
-      // Alineación por suelo: mantiene pies a la misma altura
-      const dw = w, dh = h;
-      const dx = x|0, dy = (y + (h - dh))|0;
-      ctx.drawImage(S.img, sx, sy, S.fw, S.fh, dx, dy, dw, dh);
+      ctx.drawImage(S.img, sx, sy, S.fw, S.fh, x|0, y|0, w, h);
     }
-
-    function safeSeqFrame(key, anim, tick){
-      const seq = getSeq(key, anim);
-      if (!seq.length) return 0;
-      return seq[tick % seq.length];
-    }
+    const safeSeqFrame = (key, anim, tick) => getSeq(key, anim)[tick % getSeq(key, anim).length];
 
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
@@ -318,7 +317,7 @@
       drawGridFrame(e.type, fid, px, py, e.w, e.h);
     }
 
-    // ===== Tipos =====
+    // ===== Tipos de enemigos =====
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:28, h:44, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:26, h:42, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -336,30 +335,6 @@
       flecha: { speed: 390, w: 12, h: 4, color: '#fcd34d', gravity:0, from:'enemy' },
       fuego:  { speed: 300, w: 10, h:10, color: '#fb7185', gravity: 520, from:'enemy' }
     };
-
-    // ===== Estado =====
-    let state='start', keys={}, cameraX=0;
-    let player, stones=[], enemies=[], enemyProjectiles=[];
-    let timeStart=0, elapsed=0, score=0, paused=false;
-    let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
-    const groundY = H - 78;
-
-    // ===== Util =====
-    const rnd = (a,b)=>a+Math.random()*(b-a);
-    const chance = p=>Math.random()<p;
-    const fmtTime = sec=>{const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;};
-    const getBest = ()=> +localStorage.getItem('erd_best') || 0;
-    const setBest = v => localStorage.setItem('erd_best', String(Math.floor(v)));
-
-    // ===== Game setup =====
-    function resetGame(){
-      player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0 };
-      stones.length=0; enemies.length=0; enemyProjectiles.length=0;
-      score=0; cameraX=0; paused=false;
-      timeStart=performance.now(); elapsed=0;
-      spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
-      pAnim="idle"; pFrame=0; pTimer=0;
-    }
 
     // ===== Spawning =====
     function pickEnemyType(timeSec){
@@ -527,7 +502,7 @@
     // Best time
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby
+    // Música lobby (autoplay-friendly)
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
@@ -537,7 +512,7 @@
     ['pointerdown','keydown','touchstart','pointermove'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
-    // Boot
+    // Inicia loop
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
     // Helpers debug
