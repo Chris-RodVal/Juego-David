@@ -194,88 +194,43 @@
 
     // ======== Background with Themes ========
     let ashParticles = [];
-    function currentTheme() {
-      const idx = Math.floor(elapsed / 60) % THEMES.length; // cambia cada 60s
-      return THEMES[idx];
-    }
+    function currentTheme() { const idx = Math.floor(elapsed / 60) % THEMES.length; return THEMES[idx]; }
     function drawBackground(dt) {
       const T = currentTheme();
       const g = ctx.createLinearGradient(0,0,0,H);
       g.addColorStop(0, T.skyTop); g.addColorStop(.55, T.skyMid); g.addColorStop(1, T.skyBot);
       ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-
-      // glow near horizon
       ctx.fillStyle = T.glow; ctx.fillRect(0, H-160, W, 160);
-
-      // far ruins parallax (no jitter: quantize positions)
-      drawRuins(T.ruin, 0.16, 220);
-      drawRuins(T.ruin, 0.24, 180);
-      drawRuins(T.ruin, 0.32, 140);
-
-      // ash particles
-      if (ashParticles.length < 120 && chance(0.6)) {
-        ashParticles.push({ x: rnd(-40, W+40), y: rnd(-20, H-40), a: rnd(0.5, 1.2) });
-      }
+      drawRuins(T.ruin, 0.16, 220); drawRuins(T.ruin, 0.24, 180); drawRuins(T.ruin, 0.32, 140);
+      if (ashParticles.length < 120 && chance(0.6)) ashParticles.push({ x: rnd(-40, W+40), y: rnd(-20, H-40), a: rnd(0.5, 1.2) });
       ctx.fillStyle = 'rgba(248,250,252,.6)';
-      for (let i=ashParticles.length-1;i>=0;i--) {
-        const p = ashParticles[i]; p.y += p.a * 8 * dt; p.x -= p.a * 12 * dt;
-        ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1);
-        if (p.y > H || p.x < -60) ashParticles.splice(i,1);
-      }
-
+      for (let i=ashParticles.length-1;i>=0;i--) { const p = ashParticles[i]; p.y += p.a * 8 * dt; p.x -= p.a * 12 * dt; ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1); if (p.y > H || p.x < -60) ashParticles.splice(i,1); }
       drawGround(T);
     }
     function drawRuins(color, speed, height) {
-      const offset = Math.floor((cameraX * speed)) % W; // quantized to avoid tremble
+      const offset = Math.floor((cameraX * speed)) % W;
       ctx.fillStyle = color;
-      for (let i=-1;i<3;i++) {
-        const baseX = i*W - offset;
-        for (let b=0;b<5;b++) {
-          const x = Math.floor(baseX + b*220);
-          const w = Math.floor(80 + (b%3)*10);
-          const h = height + (b%2? -20:20);
-          ctx.fillRect(x, groundY - h, w, h);
-          ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
-        }
-      }
+      for (let i=-1;i<3;i++) { const baseX = i*W - offset; for (let b=0;b<5;b++) { const x = Math.floor(baseX + b*220); const w = Math.floor(80 + (b%3)*10); const h = height + (b%2? -20:20); ctx.fillRect(x, groundY - h, w, h); ctx.clearRect(x+8, groundY - h - 4, w-16, 3); } }
     }
     function drawGround(T) {
       ctx.fillStyle = T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
-      ctx.fillStyle = T.dirt2;
-      for (let y=groundY+2; y<H; y+=4) for (let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
-      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) {
-        ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
-        ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
-        ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
-      }
+      ctx.fillStyle = T.dirt2; for (let y=groundY+2; y<H; y+=4) for (let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
+      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) { ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9); ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5); ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1); }
     }
 
-    // ======== Rendering: Entities (player Terraria-like) ========
+    // ======== Rendering: Entities ========
     function drawPlayer(p) {
       const px = (p.x - cameraX)|0, py = (p.y)|0, w=p.w, h=p.h;
-      // shadow
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, w+10, 3);
-      // jeans
       ctx.fillStyle = COLORS.jean; ctx.fillRect(px+6, py+h-16, w-12, 16);
-      // shirt torso with slight shading
-      const grd = ctx.createLinearGradient(px, py+8, px+w, py+h);
-      grd.addColorStop(0, COLORS.shirt); grd.addColorStop(1, COLORS.sleeve);
-      ctx.fillStyle = grd; ctx.fillRect(px, py+8, w, h-8);
-      // sleeves accents
+      const grd = ctx.createLinearGradient(px, py+8, px+w, py+h); grd.addColorStop(0, COLORS.shirt); grd.addColorStop(1, COLORS.sleeve); ctx.fillStyle = grd; ctx.fillRect(px, py+8, w, h-8);
       ctx.fillStyle = COLORS.sleeve; ctx.fillRect(px-2, py+16, 4, 10); ctx.fillRect(px+w-2, py+16, 4, 10);
-      // shoes
       ctx.fillStyle = COLORS.shoe; ctx.fillRect(px+2, py+h-4, w-4, 4);
-      // head
       ctx.fillStyle = COLORS.skin; ctx.fillRect(px+8, py-10, 12, 10);
-      // hair (messy brown)
       ctx.fillStyle = COLORS.hair; ctx.fillRect(px+6, py-12, 16, 6); ctx.fillRect(px+4, py-10, 6, 6);
       ctx.fillStyle = COLORS.hairDark; ctx.fillRect(px+14, py-12, 6, 3);
-      // sling strap
       ctx.fillStyle = '#cbd5e1'; ctx.fillRect(px+3, py+10, 3, 16);
-      if (p.duck) { ctx.fillStyle = 'rgba(147,197,253,.2)'; ctx.fillRect(px, py, w, h); }
-      if (p.inv > 0 && Math.floor(p.inv*20)%2===0) { ctx.globalAlpha = 0.65; ctx.fillStyle = '#fca5a5'; ctx.fillRect(px-1, py-1, w+2, h+2); ctx.globalAlpha = 1; }
     }
-
     function drawHuman(e, cloth, armor, bow=false, bulky=false) {
       const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x-4, groundY-4, w+8, 3);
@@ -286,53 +241,20 @@
       if (bulky) { ctx.fillStyle = '#6b7280'; ctx.fillRect(x-2, y+8, 4, h-10); }
       if (bow) { ctx.fillStyle = '#a16207'; ctx.fillRect(x+w-3, y+12, 2, 14); }
     }
-    function drawBeast(e, c1, c2, big=false) {
-      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
-      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x-6, groundY-4, w+12, 3);
-      ctx.fillStyle=c1; ctx.fillRect(x, y+4, w, h-4);
-      ctx.fillStyle=c2; ctx.fillRect(x+4, y, w-8, 10);
-      if (big) { ctx.fillStyle='#9ca3af'; ctx.fillRect(x+w-8, y+6, 4, 4); }
-    }
-    function drawDemon(e, c1, c2) {
-      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
-      ctx.fillStyle=c1; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle=c2; ctx.fillRect(x-6, y+6, 12, 4); ctx.fillRect(x+w-6, y+6, 12, 4);
-      ctx.fillStyle='#f59e0b'; ctx.fillRect(x+Math.floor(w/2)-2, y+4, 4, 4);
-    }
-    function drawRock(e, rockColor) {
-      const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h;
-      ctx.fillStyle=rockColor; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle='#9ca3af'; ctx.fillRect(x+4, y+6, 6, 4);
-      ctx.fillStyle='#4b5563'; ctx.fillRect(x+12, y+12, 6, 6);
-    }
+    function drawBeast(e, c1, c2, big=false) { const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h; ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x-6, groundY-4, w+12, 3); ctx.fillStyle=c1; ctx.fillRect(x, y+4, w, h-4); ctx.fillStyle=c2; ctx.fillRect(x+4, y, w-8, 10); if (big) { ctx.fillStyle='#9ca3af'; ctx.fillRect(x+w-8, y+6, 4, 4); } }
+    function drawDemon(e, c1, c2) { const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h; ctx.fillStyle=c1; ctx.fillRect(x, y, w, h); ctx.fillStyle=c2; ctx.fillRect(x-6, y+6, 12, 4); ctx.fillRect(x+w-6, y+6, 12, 4); ctx.fillStyle='#f59e0b'; ctx.fillRect(x+Math.floor(w/2)-2, y+4, 4, 4); }
+    function drawRock(e, rockColor) { const x=(e.x-cameraX)|0, y=e.y|0, w=e.w, h=e.h; ctx.fillStyle=rockColor; ctx.fillRect(x, y, w, h); ctx.fillStyle='#9ca3af'; ctx.fillRect(x+4, y+6, 6, 4); ctx.fillStyle='#4b5563'; ctx.fillRect(x+12, y+12, 6, 6); }
     function drawProjectile(p) { const x=(p.x-cameraX)|0, y=p.y|0; ctx.fillStyle=p.color; ctx.fillRect(x, y, p.w, p.h); }
 
     // ======== Spawning ========
-    function pickEnemyType(timeSec) {
-      const t = timeSec, pool = [];
-      push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2);
-      if (t > 20) { push('bruto', 3); push('leon', 3); }
-      if (t > 35) { push('oso', 2); }
-      if (t > 25) { push('demonio', 3); }
-      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
-      const key = pool[(Math.random()*pool.length)|0];
-      return ENEMY_TYPES.find(e=>e.key===key);
-    }
+    function pickEnemyType(timeSec) { const t = timeSec, pool = []; push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2); if (t > 20) { push('bruto', 3); push('leon', 3); } if (t > 35) { push('oso', 2); } if (t > 25) { push('demonio', 3); } function push(k,n){ for(let i=0;i<n;i++) pool.push(k); } const key = pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
     function spawnEnemy(timeSec) {
       if (enemies.length > maxEnemies) return;
       const t = pickEnemyType(timeSec);
       const e = { type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + rnd(20, 220), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: rnd(0, Math.PI*2) };
       e.y = e.ground ? (groundY - e.h) : rnd(120, 260);
       enemies.push(e);
-
-      // occasional mini-horde
-      if (chance(0.12)) {
-        const extra = 1 + (Math.random()*2)|0;
-        for (let k=0;k<extra;k++) {
-          const e2 = { ...e, x: e.x + 40*(k+1) };
-          enemies.push(e2);
-        }
-      }
+      if (chance(0.12)) { const extra = 1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({ ...e, x: e.x + 40*(k+1) }); }
     }
 
     // ======== Physics & Update ========
@@ -341,154 +263,63 @@
     function update(dt) {
       if (paused) return;
       cameraX += (player.x - cameraX - 240) * 0.06;
-
-      // Input
       const accel = player.onGround ? PLAYER.speed : PLAYER.speed * 0.8;
       if (keys['ArrowLeft'] || keys['a']) player.vx = -accel;
       if (keys['ArrowRight'] || keys['d']) player.vx = accel;
       if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])) player.vx *= player.onGround ? FRICTION : 1;
       if ((keys['ArrowUp']||keys['w']) && player.onGround) { player.vy = -PLAYER.jump; player.onGround = false; }
       player.duck = !!(keys['ArrowDown']||keys['s']);
-
-      // Shoot
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
-      if (keys[' '] && player.canShoot===0) {
-        stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
-        player.canShoot = PLAYER.stoneCooldown;
-      }
-
-      // Physics
-      player.vy += GRAVITY * dt;
-      player.x += player.vx * dt; player.y += player.vy * dt;
-      const ph = player.duck ? player.h-10 : player.h;
-      if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; }
-      if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
-
-      // Stones
+      if (keys[' '] && player.canShoot===0) { stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' }); player.canShoot = PLAYER.stoneCooldown; }
+      player.vy += GRAVITY * dt; player.x += player.vx * dt; player.y += player.vy * dt;
+      const ph = player.duck ? player.h-10 : player.h; if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; } if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
       for (let i=stones.length-1;i>=0;i--) { const s=stones[i]; s.x += s.vx*dt; s.y += s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
-
-      // Spawns
-      spawnTimer -= dt; if (spawnTimer <= 0) {
-        spawnEnemy(elapsed);
-        spawnInterval = Math.max(0.65, spawnInterval - 0.0045);
-        spawnTimer = spawnInterval + (Math.random()*0.3 - 0.15);
-        if (elapsed>90 && maxEnemies<24) maxEnemies = 24; // harder later
-      }
-
-      // Enemies
-      for (let i=enemies.length-1;i>=0;i--) {
-        const e = enemies[i];
-        if (e.flyer) { e.vx = -e.speed; e.vy = Math.sin((elapsed + e.phase) * 2.0) * 20; e.y += e.vy * dt; }
-        else if (e.roller) { e.vx = -e.speed; }
-        else { e.vx = -e.speed + (e.type==='ladron' ? -50 : 0); }
-        e.x += e.vx * dt;
-        if (e.ground) { if (e.y + e.h < groundY) e.y += GRAVITY*dt; if (e.y + e.h > groundY) e.y = groundY - e.h; }
-
-        // Enemy shooting
-        if (e.projectile && (e.shootCD !== undefined)) {
-          e.shootCD -= dt; if (e.shootCD <= 0 && e.x - cameraX < W && e.x - cameraX > 100) {
-            if (e.projectile === 'flecha') {
-              enemyProjectiles.push({ x: e.x, y: e.y + 8, w: PROJ.flecha.w, h: PROJ.flecha.h, vx: -PROJ.flecha.speed, vy: 0, color: PROJ.flecha.color, from:'enemy' });
-            } else if (e.projectile === 'fuego') {
-              const vy = 100 + Math.random()*60;
-              enemyProjectiles.push({ x: e.x, y: e.y + 10, w: PROJ.fuego.w, h: PROJ.fuego.h, vx: -80 - Math.random()*60, vy: vy, color: PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
-            }
-            e.shootCD = (e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-          }
-        }
-        if (e.x + e.w < cameraX - 40) { enemies.splice(i,1); continue; }
-      }
-
-      // Enemy projectiles
-      for (let i=enemyProjectiles.length-1;i>=0;i--) {
-        const p = enemyProjectiles[i];
-        p.vy += (p.gravity||0)*dt; p.x += p.vx*dt; p.y += p.vy*dt;
-        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)) { enemyProjectiles.splice(i,1); continue; }
-        if (p.x + p.w < cameraX - 40) { enemyProjectiles.splice(i,1); continue; }
-      }
-
-      // Collisions: stones vs enemies
-      for (let i=enemies.length-1;i>=0;i--) {
-        const e = enemies[i];
-        for (let j=stones.length-1;j>=0;j--) {
-          const s = stones[j];
-          if (rectsOverlap(e, s)) { e.hp -= 1; stones.splice(j,1); score += 5; if (e.hp <= 0) { score += e.score; enemies.splice(i,1); break; } }
-        }
-      }
-
-      // Collisions: player vs enemies/projectiles
+      spawnTimer -= dt; if (spawnTimer <= 0) { spawnEnemy(elapsed); spawnInterval = Math.max(0.65, spawnInterval - 0.0045); spawnTimer = spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies = 24; }
+      for (let i=enemies.length-1;i>=0;i--) { const e = enemies[i]; if (e.flyer) { e.vx = -e.speed; e.vy = Math.sin((elapsed + e.phase) * 2.0) * 20; e.y += e.vy * dt; } else if (e.roller) { e.vx = -e.speed; } else { e.vx = -e.speed + (e.type==='ladron' ? -50 : 0); } e.x += e.vx * dt; if (e.ground) { if (e.y + e.h < groundY) e.y += GRAVITY*dt; if (e.y + e.h > groundY) e.y = groundY - e.h; } if (e.projectile && (e.shootCD !== undefined)) { e.shootCD -= dt; if (e.shootCD <= 0 && e.x - cameraX < W && e.x - cameraX > 100) { if (e.projectile === 'flecha') enemyProjectiles.push({ x: e.x, y: e.y + 8, w: PROJ.flecha.w, h: PROJ.flecha.h, vx: -PROJ.flecha.speed, vy: 0, color: PROJ.flecha.color, from:'enemy' }); else if (e.projectile === 'fuego') enemyProjectiles.push({ x: e.x, y: e.y + 10, w: PROJ.fuego.w, h: PROJ.fuego.h, vx: -80 - Math.random()*60, vy: 100 + Math.random()*60, color: PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity }); e.shootCD = (e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15); } } if (e.x + e.w < cameraX - 40) { enemies.splice(i,1); continue; } }
+      for (let i=enemyProjectiles.length-1;i>=0;i--) { const p = enemyProjectiles[i]; p.vy += (p.gravity||0)*dt; p.x += p.vx*dt; p.y += p.vy*dt; if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)) { enemyProjectiles.splice(i,1); continue; } if (p.x + p.w < cameraX - 40) { enemyProjectiles.splice(i,1); continue; } }
+      for (let i=enemies.length-1;i>=0;i--) { const e = enemies[i]; for (let j=stones.length-1;j>=0;j--) { const s = stones[j]; if (rectsOverlap(e, s)) { e.hp -= 1; stones.splice(j,1); score += 5; if (e.hp <= 0) { score += e.score; enemies.splice(i,1); break; } } } }
       if (player.inv > 0) player.inv -= dt; if (player.inv < 0) player.inv = 0;
       const pHit = { x: player.x, y: player.y + (player.duck?10:0), w: player.w, h: player.duck?player.h-10:player.h };
       for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
       for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
-
-      // Time & HUD
-      timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000;
-      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
-      hudScore.textContent = `Puntos: ${score}`;
+      timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000; hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`; hudScore.textContent = `Puntos: ${score}`;
     }
 
     function damagePlayer(dmg) { player.hearts = Math.max(0, player.hearts - dmg); player.inv = PLAYER.invTime; if (player.hearts <= 0) gameOver(); updateHearts(); }
     function updateHearts() { const hearts = '❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent = `Vida: ${hearts}`; }
 
     // ======== Draw ========
-    function render(dt) {
-      drawBackground(dt);
-      stones.forEach(drawProjectile);
-      enemies.forEach(e => e.tRef.draw(e));
-      enemyProjectiles.forEach(drawProjectile);
-      drawPlayer(player);
-    }
+    function render(dt) { drawBackground(dt); stones.forEach(drawProjectile); enemies.forEach(e => e.tRef.draw(e)); enemyProjectiles.forEach(drawProjectile); drawPlayer(player); }
 
     // ======== Loop ========
-    let last = 0;
-    function loop(ts) {
-      const now = ts || performance.now();
-      const dt = Math.min(0.033, (now - last) / 1000) || 0.016;
-      last = now;
-      if (state === 'play') { update(dt); render(dt); }
-      requestAnimationFrame(loop);
-    }
+    let last = 0; function loop(ts) { const now = ts || performance.now(); const dt = Math.min(0.033, (now - last) / 1000) || 0.016; last = now; if (state === 'play') { update(dt); render(dt); } requestAnimationFrame(loop); }
 
     // ======== Game Flow & Audio ========
     function startGame() {
-      state = 'play';
-      startOverlay.classList.add('hidden');
-      gameOverOverlay.classList.add('hidden');
-      resetGame(); updateHearts();
-      // Música: cortar lobby, iniciar gameplay
+      state = 'play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); resetGame(); updateHearts();
       try { bgmLobby.pause(); } catch (e) {}
       try { bgmGame.currentTime = 0; bgmGame.volume = 0.45; bgmGame.play().catch(()=>{}); } catch (e) {}
       try { bgmLose.pause(); bgmLose.currentTime = 0; } catch (e) {}
       window.focus();
     }
     function gameOver() {
-      state = 'gameover';
-      const best = getBest(); if (elapsed > best) setBest(elapsed);
-      timeSurvivedEl.textContent = fmtTime(elapsed);
-      bestTimeEl.textContent = fmtTime(getBest());
-      gameOverOverlay.classList.remove('hidden');
-      // Audio: detener gameplay, reproducir derrota
-      try { bgmGame.pause(); } catch (e) {}
-      try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
+      state = 'gameover'; const best = getBest(); if (elapsed > best) setBest(elapsed); timeSurvivedEl.textContent = fmtTime(elapsed); bestTimeEl.textContent = fmtTime(getBest()); gameOverOverlay.classList.remove('hidden');
+      try { bgmGame.pause(); } catch (e) {} try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
     }
 
-    // ======== Input ========
-    let paused = false;
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') e.preventDefault();
-      keys[e.key] = true;
-      if ((e.key === 'p' || e.key === 'P') && state==='play') paused = !paused;
-      if (e.key === 'i' || e.key === 'I') controlsPanel.classList.toggle('hidden');
-    });
+    // ======== Input & Boot ========
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space') e.preventDefault(); keys[e.key] = true; if ((e.key === 'p' || e.key === 'P') && state==='play') paused = !paused; if (e.key === 'i' || e.key === 'I') controlsPanel.classList.toggle('hidden'); });
     window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
 
-    // Init best time & start lobby music
+    // Best time
     bestStart.textContent = fmtTime(getBest());
-    try { bgmLobby.volume = 0.5; bgmLobby.play().catch(()=>{}); } catch (e) {}
+
+    // Autoplay-friendly: iniciar música de lobby tras el primer gesto del usuario
+    function unlockLobbyOnce(){ if (state !== 'start') return; try { bgmLobby.volume = 0.5; bgmLobby.play().catch(()=>{}); } catch (e) {} window.removeEventListener('pointerdown', unlockLobbyOnce); window.removeEventListener('keydown', unlockLobbyOnce); window.removeEventListener('touchstart', unlockLobbyOnce); }
+    window.addEventListener('pointerdown', unlockLobbyOnce); window.addEventListener('keydown', unlockLobbyOnce); window.addEventListener('touchstart', unlockLobbyOnce);
 
     // Begin loop
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
