@@ -20,7 +20,6 @@
     }
     .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
-
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
     h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
@@ -31,7 +30,6 @@
     button.pixel:active { transform: translateY(1px); }
     .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
     .hidden { display: none; }
-
     .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
@@ -46,7 +44,6 @@
 <body>
   <div class="wrap">
     <div class="stage">
-      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
@@ -65,7 +62,6 @@
         <div class="hint">Consejo: mantén distancia, los arqueros y demonios ahora son más agresivos.</div>
       </div>
 
-      <!-- Start Screen -->
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
@@ -76,7 +72,6 @@
         </div>
       </div>
 
-      <!-- Game Over Screen -->
       <div id="gameOverOverlay" class="overlay hidden">
         <div class="panel">
           <h1 class="title">El valle te ha reclamado…</h1>
@@ -109,11 +104,9 @@
     const bestStart      = document.getElementById('bestStart');
     const bestTimeEl     = document.getElementById('bestTime');
     const timeSurvivedEl = document.getElementById('timeSurvived');
-
     const hudHealth = document.getElementById('hudHealth');
     const hudTime   = document.getElementById('hudTime');
     const hudScore  = document.getElementById('hudScore');
-
     const controlsPanel = document.getElementById('controlsPanel');
     const bgmLobby = document.getElementById('bgmLobby');
     const bgmGame  = document.getElementById('bgmGame');
@@ -143,7 +136,7 @@
       roca: "Roca.png",
     };
 
-    // ===== GRID FIJA por hoja — basado en tamaños reales ===== // FIX
+    // ===== GRID FIJA por hoja =====
     const GRID = {
       // 1536×1024 → 6×4 de 256×256
       david:   { cols: 6, rows: 4 },
@@ -158,47 +151,87 @@
       demonio: { cols: 2, rows: 2 },
     };
 
-    // ===== Carga por grilla =====
-    const Sheets = {};               // {key:{img, fw, fh, cols, rows, total}}
+    // ===== Carga + construcción de celdas con recorte y baseline =====
+    // Cada frame guardará: sx,sy,sw,sh y baseline (distancia desde sy al píxel opaco más bajo).
+    const Sheets = {};                             // FIX
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
     function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 
-    function buildGrid(key, img){                      // FIX
-      const g = GRID[key] || {cols:1, rows:1};
-      const cols = Math.max(1, g.cols|0), rows = Math.max(1, g.rows|0);
+    function buildGridWithTrim(key, img){         // FIX: recorte y baseline por celda
+      const {cols, rows} = GRID[key] || {cols:1, rows:1};
       const fw = Math.floor(img.naturalWidth / cols);
       const fh = Math.floor(img.naturalHeight / rows);
-      Sheets[key] = { img, fw, fh, cols, rows, total: cols*rows };
+
+      // pintar en canvas para leer alpha
+      const tmp = document.createElement('canvas'); tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+      const tg = tmp.getContext('2d', {willReadFrequently:true});
+      tg.drawImage(img,0,0);
+      const pixels = tg.getImageData(0,0,tmp.width,tmp.height).data;
+
+      function cellInfo(c,r){
+        const sx=c*fw, sy=r*fh;
+        let minX=fw, minY=fh, maxX=-1, maxY=-1;
+        for(let y=0;y<fh;y++){
+          const gy = sy + y;
+          for(let x=0;x<fw;x++){
+            const gx = sx + x;
+            const a = pixels[(gy*tmp.width + gx)*4 + 3];
+            if (a>0){
+              if (x<minX) minX=x;
+              if (y<minY) minY=y;
+              if (x>maxX) maxX=x;
+              if (y>maxY) maxY=y;
+            }
+          }
+        }
+        if (maxX<0 || maxY<0){ // celda vacía → usar 1×1 transparente para que se “salte”
+          return { sx, sy, sw:0, sh:0, baseline:0, empty:true };
+        }
+        const sw = Math.max(1, (maxX - minX + 1));
+        const sh = Math.max(1, (maxY - minY + 1));
+        const baseline = maxY - minY; // píxel opaco más bajo relativo al recorte
+        return { sx: sx+minX, sy: sy+minY, sw, sh, baseline, empty:false };
+      }
+
+      const frames=[];
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          frames.push(cellInfo(c,r));
+        }
+      }
+      const total = frames.length;
+      Sheets[key] = { img, fw, fh, cols, rows, total, frames };
     }
 
     async function loadAll(){
       for (const [key,src] of Object.entries(SOURCES)){
         try{
           const img = await loadImage(src);
-          buildGrid(key, img);                           // FIX
+          buildGridWithTrim(key, img);            // FIX
         }catch(e){
           console.warn(`[Sprites] Falló ${key}:`, e);
           SPRITES_FAILED.push(key);
         }
       }
       SPRITES_READY = true;
-      setTimeout(()=>console.table(Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, fw:s.fw, fh:s.fh, total:s.total}]))),0);
+      // Auditor rápido
+      setTimeout(()=>{
+        const t = Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, total:s.total}]));
+        console.table(t);
+      },0);
     }
     loadAll();
 
-    // ===== Secuencias (usando filas con contenido) =====
-    // Para hojas 6×4 (24 frames): índices de fila
-    // fila2:  6..11 (idle), fila3: 12..17 (walk/roll), fila4: 18..23 (atk)
+    // ===== Secuencias (índices dentro de la grilla; se filtrarán por celdas vacías) =====
     function seqRange(a,b){ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; }
-    function withinTotal(arr, total){ return (arr||[0]).map(i => ((i%total)+total)%total); }
 
+    // Para 6×4: fila2=6..11 (idle), fila3=12..17 (walk/roll), fila4=18..23 (atk)
     const PLAYER_SEQ_RAW = {
-      idle: seqRange(6,9),              // 6,7,8,9
-      walk: seqRange(12,15),            // 12..15
-      sling: [18,19,20,21]              // 4ª fila
+      idle: seqRange(6,9),
+      walk: seqRange(12,15),
+      sling: [18,19,20,21]
     };
-    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
 
     const ENEMY_SEQ_RAW = {
       soldado:{ idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
@@ -207,9 +240,25 @@
       ladron:{  idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
       leon:{    idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
       oso:{     idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      roca:{    roll:seqRange(12,15) },               // usa fila 3
-      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }       // 2×2
+      roca:{    roll:seqRange(12,15) },
+      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
+
+    // Filtra cualquier índice que sea celda vacía en la hoja concreta
+    function sanitizeSeq(sheetKey, arr){           // FIX
+      const S = Sheets[sheetKey];
+      if (!S) return arr;
+      const total = S.total;
+      const out = [];
+      for (const i of arr){
+        const f = ((i%total)+total)%total;
+        const info = S.frames[f];
+        if (info && !info.empty) out.push(f);
+      }
+      // si se vació, vuelve a [0]
+      return out.length ? out : [0];
+    }
+
     const ENEMY_RATE = {
       soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
     };
@@ -240,14 +289,12 @@
     let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
     const groundY = H - 78;
 
-    // ===== Util =====
     const rnd = (a,b)=>a+Math.random()*(b-a);
     const chance = p=>Math.random()<p;
     const fmtTime = sec=>{const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;};
     const getBest = ()=> +localStorage.getItem('erd_best') || 0;
     const setBest = v => localStorage.setItem('erd_best', String(Math.floor(v)));
 
-    // ===== Game setup =====
     function resetGame(){
       player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0 };
       stones.length=0; enemies.length=0; enemyProjectiles.length=0;
@@ -300,43 +347,53 @@
       }
     }
 
-    // ===== Dibujo por grilla =====
-    function drawGridFrame(sheetKey, frameIndex, x, y, w, h){ // FIX
+    // ===== Dibujo (usa recorte + baseline) =====
+    function drawCell(sheetKey, frameIndex, x, y, w, h){   // FIX
       const S=Sheets[sheetKey];
-      if (!S){ // placeholder si no cargó
+      if (!S){
         ctx.fillStyle='#1f2937'; ctx.fillRect(x|0,y|0,w,h);
         ctx.strokeStyle='#94a3b8'; ctx.strokeRect(x|0,y|0,w,h);
         return;
       }
       const total=S.total||1;
-      const f=((frameIndex|0)%total + total)%total;
-      const col=f % S.cols, row=Math.floor(f / S.cols);
-      const sx=col*S.fw, sy=row*S.fh, sw=S.fw, sh=S.fh;
+      let f=((frameIndex|0)%total + total)%total;
+      // saltar celdas vacías avanzando hasta encontrar una con contenido
+      let guard=0;
+      while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
+      const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
 
-      // Mantener “pegado al suelo” y centrado
-      const scaleX=w/sw, scaleY=h/sh;
-      const dw = sw*scaleX, dh = sh*scaleY;
-      const dx = (x|0) + ((w - dw)*0.5);
-      const dy = (y|0) + (h - dh);
+      const scaleX = w / info.sw;
+      const scaleY = h / info.sh;
+      const dw = info.sw * scaleX;
+      const dh = info.sh * scaleY;
 
-      ctx.drawImage(S.img, sx, sy, sw, sh, dx, dy, dw, dh);
+      // Alineación por suelo: el baseline del frame toca y+h
+      const baselineDst = info.baseline * scaleY;
+      const dx = (x|0) + ((w - dw) * 0.5);
+      const dy = (y|0) + (h - baselineDst) - (dh - baselineDst);
+
+      ctx.drawImage(S.img, info.sx, info.sy, info.sw, info.sh, dx, dy, dw, dh);
     }
 
-    function safeSeqFrame(seqs, anim, tick, total){
-      const base = seqs[anim] || seqs.walk || seqs.idle || [0];
-      const arr = withinTotal(base, total);
+    function sanitizeAndPick(sheetKey, seqRaw, tick){
+      const arr = sanitizeSeq(sheetKey, seqRaw);
       return arr[tick % arr.length];
     }
+
+    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
 
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
       pTimer+=dt;
-      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; } // 24 = total máx 6×4 // FIX
-      const total = Sheets.david ? Sheets.david.total : 1;
-      const fid = safeSeqFrame(PLAYER_SEQ_RAW, pAnim, pFrame, total);
+      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; }
+      const fid = sanitizeAndPick('david', PLAYER_SEQ_RAW[pAnim]||[0], pFrame);
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
-      drawGridFrame('david', fid, px, py, p.w, p.h);
+      drawCell('david', fid, px, py, p.w, p.h);
     }
+
+    const ENEMY_RATE = {
+      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
+    };
 
     function drawEnemySprite(e, dt){
       if (!e.anim) e.anim=(e.flyer?'idle':(e.roller?'roll':'walk'));
@@ -349,10 +406,9 @@
         ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
       }
       const px=(e.x - cameraX), py=e.y;
-      const S = Sheets[e.type];
-      const total = S ? S.total : 1;
-      const fid = safeSeqFrame(ENEMY_SEQ_RAW[e.type]||{}, e.anim, e.frame||0, total);
-      drawGridFrame(e.type, fid, px, py, e.w, e.h);
+      const seq = ENEMY_SEQ_RAW[e.type]?.[e.anim] || ENEMY_SEQ_RAW[e.type]?.walk || [0];
+      const fid = sanitizeAndPick(e.type, seq, e.frame||0);
+      drawCell(e.type, fid, px, py, e.w, e.h);
     }
 
     // ===== Spawning =====
@@ -394,9 +450,7 @@
         stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
         player.canShoot=PLAYER.stoneCooldown; pAnim='sling'; pFrame=0; pTimer=0;
       }
-      if (pAnim==='sling' && pFrame>= withinTotal(PLAYER_SEQ_RAW.sling, Sheets.david?.total||1).length-1){
-        pAnim = (Math.abs(player.vx)>40)?'walk':'idle';
-      }
+      if (pAnim==='sling' && pFrame>= 6){ pAnim = (Math.abs(player.vx)>40)?'walk':'idle'; }
 
       player.vy += GRAVITY*dt;
       player.x  += player.vx*dt; player.y += player.vy*dt;
@@ -474,7 +528,7 @@
 
       if (!SPRITES_READY || SPRITES_FAILED.length){
         ctx.fillStyle='rgba(0,0,0,.6)';
-        ctx.fillRect(8,8,460,56);
+        ctx.fillRect(8,8,520,56);
         ctx.fillStyle='#fde68a'; ctx.font='12px monospace';
         ctx.fillText(`Sprites listos: ${SPRITES_READY ? 'sí' : 'no'}`, 16, 26);
         if (SPRITES_FAILED.length){ ctx.fillStyle='#fca5a5'; ctx.fillText(`Fallaron: ${SPRITES_FAILED.join(', ')}`, 16, 44); }
@@ -535,8 +589,8 @@
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
     // ===== Helpers debug =====
-    window.__erdFrames = () => Object.fromEntries(Object.entries(Sheets).map(([k,v])=>[k, v.total]));
     window.__erdGrid = GRID;
+    window.__erdSheet = k => Sheets[k];
   })();
   </script>
 </body>
