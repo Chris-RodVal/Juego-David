@@ -34,7 +34,6 @@
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
     .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
-
     @media (max-width: 980px) {
       canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
       .hud { width: 96vw; }
@@ -116,7 +115,7 @@
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
 
-    // Tamaño jugador (dejamos tus valores “buenos”)
+    // Tamaño jugador
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     const THEMES = [
@@ -148,10 +147,10 @@
       leon:    { cols: 6, rows: 4 },
       oso:     { cols: 6, rows: 4 },
       roca:    { cols: 6, rows: 4 },
-      demonio: { cols: 2, rows: 2 },  // 1024x1024
+      demonio: { cols: 2, rows: 2 },
     };
 
-    // ===== Carga + construcción de celdas con recorte y baseline =====
+    // ===== Carga + recorte =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
@@ -234,13 +233,11 @@
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
 
-    // FIX: ENEMY_RATE único
     const ENEMY_RATE = {
       soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
     };
 
-    // Filtra índices que apunten a celdas vacías
-    const SheetsRef = () => Sheets; // helper por cierre
+    const SheetsRef = () => Sheets;
     function sanitizeSeq(sheetKey, arr){
       const S = SheetsRef()[sheetKey];
       if (!S) return arr;
@@ -254,7 +251,7 @@
       return out.length ? out : [0];
     }
 
-    // ===== Tipos ===== (tamaños “buenos”)
+    // ===== Tipos =====
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -266,7 +263,7 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ===== Dibujo (REVISADO: pixel-perfect por celda) =====
+    // ===== Dibujo =====
     function drawCell(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S){
@@ -280,9 +277,8 @@
       while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
       const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
 
-      // --- Escala basada en la CELDA fija (no en el recorte) ---
       const scaleIdeal = Math.min(w / S.fw, h / S.fh);
-      const scale = Math.max(0.5, Math.round(scaleIdeal * 2) / 2); // snap a 0.5x
+      const scale = Math.max(0.5, Math.round(scaleIdeal * 2) / 2);
 
       const cellDw = S.fw * scale;
       const cellDh = S.fh * scale;
@@ -290,11 +286,9 @@
       const dw = info.sw * scale;
       const dh = info.sh * scale;
 
-      // Offset del recorte dentro de su celda original
       const offX = (info.sx % S.fw) * scale;
       const offY = (info.sy % S.fh) * scale;
 
-      // Colocar la celda escalada apoyada al suelo de la caja w×h
       const baseX = (x|0) + ((w - cellDw) * 0.5);
       const baseY = (y|0) + (h - cellDh);
 
@@ -419,37 +413,6 @@
         ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
         ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
       }
-    }
-
-    // ===== Dibujo player/enemigos =====
-    function sanitizeAndPick(sheetKey, seqRaw, tick){
-      const arr = sanitizeSeq(sheetKey, seqRaw);
-      return arr[tick % arr.length];
-    }
-
-    function drawPlayer(p, dt){
-      const px=(p.x - cameraX), py=p.y;
-      pTimer+=dt;
-      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; }
-      const fid = sanitizeAndPick('david', PLAYER_SEQ_RAW[pAnim]||[0], pFrame);
-      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
-      drawCell('david', fid, px, py, p.w, p.h);
-    }
-
-    function drawEnemySprite(e, dt){
-      if (!e.anim) e.anim=(e.flyer?'idle':(e.roller?'roll':'walk'));
-      e.timer=(e.timer||0)+dt;
-      const rate=ENEMY_RATE[e.type]||0.14;
-      if (e.timer>rate){ e.timer=0; e.frame=(e.frame==null?0:e.frame)+1; }
-
-      if (!e.flyer && !e.roller){
-        ctx.fillStyle='rgba(0,0,0,.25)';
-        ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
-      }
-      const px=(e.x - cameraX), py=e.y;
-      const seq = ENEMY_SEQ_RAW[e.type]?.[e.anim] || ENEMY_SEQ_RAW[e.type]?.walk || [0];
-      const fid = sanitizeAndPick(e.type, seq, e.frame||0);
-      drawCell(e.type, fid, px, py, e.w, e.h);
     }
 
     // ===== Física & Update =====
@@ -585,7 +548,6 @@
     }
 
     // ===== Input =====
-    let keys={};
     window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
@@ -598,12 +560,16 @@
     btnRestart.addEventListener('click', startGame);
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby (autoplay-friendly: sólo se intenta tras una interacción)
+    // Música lobby (después de una interacción del usuario)
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
       triedLobby=true;
-      try{ bgmLobby.volume=0.55; bgmLobby.currentTime=0; const p=bgmLobby.play(); if (p&&p.catch) p.catch(()=>{ triedLobby=false; }); }catch(e){ triedLobby=false; }
+      try{
+        bgmLobby.volume=0.55; bgmLobby.currentTime=0;
+        const p=bgmLobby.play();
+        if (p&&p.catch) p.catch(()=>{ triedLobby=false; });
+      }catch(e){ triedLobby=false; }
     }
     ['pointerdown','keydown','touchstart','pointermove'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
