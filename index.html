@@ -20,6 +20,7 @@
     }
     .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
+
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
     h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
@@ -30,10 +31,12 @@
     button.pixel:active { transform: translateY(1px); }
     .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
     .hidden { display: none; }
+
     .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
     .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+
     @media (max-width: 980px) {
       canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
       .hud { width: 96vw; }
@@ -43,6 +46,7 @@
 <body>
   <div class="wrap">
     <div class="stage">
+      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
@@ -61,6 +65,7 @@
         <div class="hint">Consejo: mantén distancia, los arqueros y demonios ahora son más agresivos.</div>
       </div>
 
+      <!-- Start Screen -->
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
@@ -71,6 +76,7 @@
         </div>
       </div>
 
+      <!-- Game Over Screen -->
       <div id="gameOverOverlay" class="overlay hidden">
         <div class="panel">
           <h1 class="title">El valle te ha reclamado…</h1>
@@ -103,9 +109,11 @@
     const bestStart      = document.getElementById('bestStart');
     const bestTimeEl     = document.getElementById('bestTime');
     const timeSurvivedEl = document.getElementById('timeSurvived');
+
     const hudHealth = document.getElementById('hudHealth');
     const hudTime   = document.getElementById('hudTime');
     const hudScore  = document.getElementById('hudScore');
+
     const controlsPanel = document.getElementById('controlsPanel');
     const bgmLobby = document.getElementById('bgmLobby');
     const bgmGame  = document.getElementById('bgmGame');
@@ -135,21 +143,22 @@
       roca: "Roca.png",
     };
 
-    // === GRID FIJA por hoja (según los PNG que enviaste) — elimina parpadeo === // FIX
-    // Ajusta si cambias algún PNG por otro con distinta grilla.
+    // ===== GRID FIJA por hoja — basado en tamaños reales ===== // FIX
     const GRID = {
-      david:   { cols: 10, rows: 2 },  // 20 frames
-      soldado: { cols: 6,  rows: 1 },  // 6
-      arquero: { cols: 10, rows: 1 },  // 10
-      bruto:   { cols: 6,  rows: 1 },  // 6
-      ladron:  { cols: 6,  rows: 1 },  // 6
-      leon:    { cols: 5,  rows: 1 },  // 5
-      oso:     { cols: 6,  rows: 1 },  // 6
-      demonio: { cols: 2,  rows: 2 },  // 4
-      roca:    { cols: 4,  rows: 1 },  // 4
+      // 1536×1024 → 6×4 de 256×256
+      david:   { cols: 6, rows: 4 },
+      soldado: { cols: 6, rows: 4 },
+      arquero: { cols: 6, rows: 4 },
+      bruto:   { cols: 6, rows: 4 },
+      ladron:  { cols: 6, rows: 4 },
+      leon:    { cols: 6, rows: 4 },
+      oso:     { cols: 6, rows: 4 },
+      roca:    { cols: 6, rows: 4 },
+      // 1024×1024 → 2×2 de 512×512
+      demonio: { cols: 2, rows: 2 },
     };
 
-    // ===== Carga + “slicing” por grilla =====
+    // ===== Carga por grilla =====
     const Sheets = {};               // {key:{img, fw, fh, cols, rows, total}}
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
@@ -174,26 +183,32 @@
         }
       }
       SPRITES_READY = true;
-      // Auditor rápido a consola
       setTimeout(()=>console.table(Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, fw:s.fw, fh:s.fh, total:s.total}]))),0);
     }
     loadAll();
 
-    // ===== Secuencias (se recortan por total con módulo) =====
-    function withinTotal(arr, total){ return (arr||[0]).map(i => ((i%total)+total)%total); } // FIX
+    // ===== Secuencias (usando filas con contenido) =====
+    // Para hojas 6×4 (24 frames): índices de fila
+    // fila2:  6..11 (idle), fila3: 12..17 (walk/roll), fila4: 18..23 (atk)
+    function seqRange(a,b){ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; }
+    function withinTotal(arr, total){ return (arr||[0]).map(i => ((i%total)+total)%total); }
 
-    const PLAYER_SEQ_RAW = { idle:[0,1,0,1], walk:[2,3,4,5], sling:[6,7,8,7] };
+    const PLAYER_SEQ_RAW = {
+      idle: seqRange(6,9),              // 6,7,8,9
+      walk: seqRange(12,15),            // 12..15
+      sling: [18,19,20,21]              // 4ª fila
+    };
     let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
 
     const ENEMY_SEQ_RAW = {
-      soldado:{ idle:[0,1,0,1], walk:[2,3,4,5], atk:[4,5,4,5] },
-      arquero:{ idle:[0,1,0,1], walk:[2,3,4,5,6,7], atk:[8,9,8,9] },
-      bruto:{   idle:[0,1,0,1], walk:[2,3,4,5],     atk:[0,1,2,3] },
-      ladron:{  idle:[0,1,0,1], walk:[2,3,4,5],     atk:[0,1,2,3] },
-      leon:{    idle:[0,1,0,1], walk:[2,3,4],       atk:[1,2,3,4] },
-      oso:{     idle:[0,1,0,1], walk:[2,3,4,5],     atk:[1,2,3,4] },
-      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] },
-      roca:{    roll:[0,1,2,3] }
+      soldado:{ idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
+      arquero:{ idle:seqRange(6,9),  walk:seqRange(12,17), atk:seqRange(18,21) },
+      bruto:{   idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
+      ladron:{  idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
+      leon:{    idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
+      oso:{     idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
+      roca:{    roll:seqRange(12,15) },               // usa fila 3
+      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }       // 2×2
     };
     const ENEMY_RATE = {
       soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
@@ -308,14 +323,15 @@
     }
 
     function safeSeqFrame(seqs, anim, tick, total){
-      const arr = withinTotal(seqs[anim] || seqs.walk || seqs.idle || [0], total);
+      const base = seqs[anim] || seqs.walk || seqs.idle || [0];
+      const arr = withinTotal(base, total);
       return arr[tick % arr.length];
     }
 
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
       pTimer+=dt;
-      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%20; } // 20 = total máx de David // FIX
+      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; } // 24 = total máx 6×4 // FIX
       const total = Sheets.david ? Sheets.david.total : 1;
       const fid = safeSeqFrame(PLAYER_SEQ_RAW, pAnim, pFrame, total);
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
@@ -378,7 +394,9 @@
         stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
         player.canShoot=PLAYER.stoneCooldown; pAnim='sling'; pFrame=0; pTimer=0;
       }
-      if (pAnim==='sling' && pFrame>= (withinTotal(PLAYER_SEQ_RAW.sling, Sheets.david?.total||1).length-1)){ pAnim = (Math.abs(player.vx)>40)?'walk':'idle'; }
+      if (pAnim==='sling' && pFrame>= withinTotal(PLAYER_SEQ_RAW.sling, Sheets.david?.total||1).length-1){
+        pAnim = (Math.abs(player.vx)>40)?'walk':'idle';
+      }
 
       player.vy += GRAVITY*dt;
       player.x  += player.vx*dt; player.y += player.vy*dt;
