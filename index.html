@@ -126,7 +126,7 @@
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     // Escala visual global
-    const SPRITE_SCALE = 0.64; // 0.58–0.70 a gusto
+    const SPRITE_SCALE = 0.64; // 0.58–0.70
 
     // Ajustes visuales por sprite (no afectan colisión)
     const VISUAL_TWEAKS = {
@@ -162,6 +162,10 @@
       demonio: { cols: 1, rows: 1 },
     };
 
+    // (Opcional) Recortes manuales si algún PNG no trae transparencia real
+    // Ejemplo: MANUAL_TRIM.soldado = { left:6, right:6, top:2, bottom:0 }
+    const MANUAL_TRIM = { /* soldado:{left:0,right:0,top:0,bottom:0} */ };
+
     // ===== Carga + recorte =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
@@ -174,6 +178,16 @@
         im.onerror=rej;
         im.src=src;
       });
+    }
+
+    function applyManualTrim(rect, fw, fh, manual){
+      if(!manual) return rect;
+      const left = manual.left|0, right = manual.right|0, top = manual.top|0, bottom = manual.bottom|0;
+      const sx = rect.sx + left;
+      const sy = rect.sy + top;
+      const sw = Math.max(1, rect.sw - left - right);
+      const sh = Math.max(1, rect.sh - top - bottom);
+      return { sx, sy, sw, sh, foot: Math.min(fh-1, (rect.foot ?? (fh-1))), empty:false };
     }
 
     function buildGridWithTrim(key, img){
@@ -203,15 +217,16 @@
           }
         }
 
+        // Sin alfa → usa recorte manual si existe; si no, toda la celda
         if(maxX<0||maxY<0){
-          return { sx:sx0, sy:sy0, sw:fw, sh:fh, foot:fh-1, empty:true };
+          let rect = { sx:sx0, sy:sy0, sw:fw, sh:fh, foot:fh-1, empty:true };
+          if (MANUAL_TRIM[key]) rect = applyManualTrim(rect, fw, fh, MANUAL_TRIM[key]);
+          return rect;
         }
 
-        const sw = maxX-minX+1;
-        const sh = maxY-minY+1;
-        const foot = maxY; // píxel inferior con alfa
-
-        return { sx:sx0+minX, sy:sy0+minY, sw, sh, foot, empty:false };
+        let rect = { sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, foot:maxY, empty:false };
+        if (MANUAL_TRIM[key]) rect = applyManualTrim(rect, fw, fh, MANUAL_TRIM[key]);
+        return rect;
       }
 
       const frames=[];
@@ -258,7 +273,7 @@
       const dw = Math.max(1, Math.round(f.sw * scale));
       const dh = Math.max(1, Math.round(f.sh * scale));
 
-      // Centrar y apoyar el "pie" en la base del box
+      // Centrar y apoyar el “pie” en la base del box
       const dx = Math.round(x + (w - dw) * 0.5);
       const dy = Math.round(y + h - dh + (yNudge||0));
 
@@ -267,6 +282,7 @@
 
     // ===== Player / Enemigos =====
     let pFrame=0, pTimer=0, pRate=0.20;
+
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
       pTimer+=dt; if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%1; }
@@ -490,10 +506,7 @@
       }
       async function prime(){
         if (ready) return true;
-        if (priming) { // espera sin bloquear
-          while(priming) await new Promise(r=>setTimeout(r,30));
-          return ready;
-        }
+        if (priming) { while(priming) await new Promise(r=>setTimeout(r,30)); return ready; }
         priming = true;
         try{
           await ensureCtx();
@@ -509,7 +522,7 @@
       }
       function playGame(vol=0.45){
         if (!ready || !ctx) return false;
-        current && current.stop(0);
+        try{ current?.stop(0); }catch{}
         const src=ctx.createBufferSource(); src.buffer=gameBuf; src.loop=true;
         const gain=ctx.createGain(); gain.gain.value=vol;
         src.connect(gain).connect(ctx.destination);
@@ -519,7 +532,7 @@
       }
       function stopCurrent(){ try{ current?.stop(0); }catch{} current=null; }
 
-      return { prime, playGame, stopCurrent, ensureCtx };
+      return { prime, playGame, stopCurrent };
     })();
 
     // ===== Flujo & Audio =====
@@ -529,7 +542,6 @@
 
       try{ bgmLobby.pause(); }catch(e){}
 
-      await AudioKit.ensureCtx();
       const ok = await AudioKit.prime();
       if (ok){
         AudioKit.playGame(0.45);
@@ -559,22 +571,18 @@
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
-    // ===== Input =====
-    let keys={};
-    window.addEventListener('keydown', async (e)=>{
+    // ===== Input =====  (NO redeclarar `keys` aquí)
+    window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
       if ((e.key==='p'||e.key==='P') && state==='play') paused=!paused;
       if (e.key==='i'||e.key==='I') controlsPanel.classList.toggle('hidden');
-      // Prime WebAudio en la primera interacción
+      // Prime temprano
       AudioKit.prime();
     });
     window.addEventListener('keyup', e=>{ keys[e.key]=false; });
 
-    btnStart.addEventListener('click', async ()=>{
-      await AudioKit.prime();
-      startGame();
-    });
+    btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
 
     bestStart.textContent = fmtTime(getBest());
