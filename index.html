@@ -150,17 +150,19 @@
     };
 
     // Si algún archivo es spritesheet real, cámbialo aquí
-    const GRID = {
-      david:   { cols: 1, rows: 1 },
-      soldado: { cols: 1, rows: 1 },
-      arquero: { cols: 1, rows: 1 },
-      bruto:   { cols: 1, rows: 1 },
-      ladron:  { cols: 1, rows: 1 },
-      leon:    { cols: 1, rows: 1 },
-      oso:     { cols: 1, rows: 1 },
-      roca:    { cols: 1, rows: 1 },
-      demonio: { cols: 1, rows: 1 },
-    };
+    // ===== GRID correcto por hoja =====
+const GRID = {
+  david:   { cols: 6, rows: 4 },
+  soldado: { cols: 6, rows: 4 },
+  arquero: { cols: 6, rows: 4 },
+  bruto:   { cols: 6, rows: 4 },
+  ladron:  { cols: 6, rows: 4 },
+  leon:    { cols: 6, rows: 4 },
+  oso:     { cols: 6, rows: 4 },
+  roca:    { cols: 6, rows: 4 },
+  demonio: { cols: 2, rows: 2 }, // este sheet es distinto
+};
+
 
     // (Opcional) Recortes manuales si algún PNG no trae transparencia real
     // Ejemplo: MANUAL_TRIM.soldado = { left:6, right:6, top:2, bottom:0 }
