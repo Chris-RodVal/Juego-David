@@ -149,8 +149,8 @@
       roca:    "Roca.png",
     };
 
-    // ===== GRID correcto por hoja =====
-    const GRID = {
+    // Pistas por si la autodetección falla
+    const GRID_HINT = {
       david:   { cols: 6, rows: 4 },
       soldado: { cols: 6, rows: 4 },
       arquero: { cols: 6, rows: 4 },
@@ -159,11 +159,8 @@
       leon:    { cols: 6, rows: 4 },
       oso:     { cols: 6, rows: 4 },
       roca:    { cols: 6, rows: 4 },
-      demonio: { cols: 2, rows: 2 }, // distinto
+      demonio: { cols: 2, rows: 2 },
     };
-
-    // (Opcional) Recortes manuales si algún PNG no trae transparencia real
-    const MANUAL_TRIM = { /* soldado:{left:0,right:0,top:0,bottom:0} */ };
 
     // ===== Carga + recorte por CELDA =====
     const Sheets = {};
@@ -179,20 +176,62 @@
       });
     }
 
-    function applyManualTrim(rect, fw, fh, manual){
-      if(!manual) return rect;
-      const left = manual.left|0, right = manual.right|0, top = manual.top|0, bottom = manual.bottom|0;
-      const sx = rect.sx + left;
-      const sy = rect.sy + top;
-      const sw = Math.max(1, rect.sw - left - right);
-      const sh = Math.max(1, rect.sh - top - bottom);
-      return { sx, sy, sw, sh, empty:false };
+    // Autodetecta grilla: busca columnas/filas totalmente transparentes
+    function detectGridByAlpha(img){
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
+      const tg = tmp.getContext('2d', {willReadFrequently:true});
+      tg.drawImage(img,0,0);
+      const data = tg.getImageData(0,0,w,h).data;
+
+      const colHas = new Array(w).fill(false);
+      const rowHas = new Array(h).fill(false);
+
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const a = data[(y*w + x)*4 + 3];
+          if (a>ALPHA_THRESHOLD){ colHas[x]=true; rowHas[y]=true; }
+        }
+      }
+
+      // runs de columnas con contenido
+      const colRuns=[]; let i=0;
+      while(i<w){
+        while(i<w && !colHas[i]) i++;
+        if (i>=w) break;
+        let j=i; while(j<w && colHas[j]) j++;
+        colRuns.push([i,j]); i=j;
+      }
+      // runs de filas con contenido
+      const rowRuns=[]; i=0;
+      while(i<h){
+        while(i<h && !rowHas[i]) i++;
+        if (i>=h) break;
+        let j=i; while(j<h && rowHas[j]) j++;
+        rowRuns.push([i,j]); i=j;
+      }
+
+      const cols = Math.max(1, colRuns.length);
+      const rows = Math.max(1, rowRuns.length);
+
+      // Si no se detecta nada útil, devolvemos null
+      if (cols*rows <= 1) return null;
+
+      // Promedios para info
+      const avgW = colRuns.reduce((s,r)=>s+(r[1]-r[0]),0)/cols;
+      const avgH = rowRuns.reduce((s,r)=>s+(r[1]-r[0]),0)/rows;
+
+      console.log('[AutoGrid]', {cols, rows, avgW:avgW|0, avgH:avgH|0});
+      return { cols, rows };
     }
 
     function buildGridWithTrim(key, img){
-      const {cols, rows} = GRID[key];
-      const fw = Math.floor(img.naturalWidth / cols);
-      const fh = Math.floor(img.naturalHeight / rows);
+      // 1) Intento auto-grid
+      const auto = detectGridByAlpha(img) || GRID_HINT[key] || {cols:1,rows:1};
+      const cols = auto.cols|0, rows = auto.rows|0;
+
+      const fw = Math.floor(img.naturalWidth / Math.max(1,cols));
+      const fh = Math.floor(img.naturalHeight / Math.max(1,rows));
 
       const tmp = document.createElement('canvas');
       tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
@@ -216,16 +255,10 @@
           }
         }
 
-        // Sin alfa visible → recorte manual o celda completa
         if(maxX<0||maxY<0){
-          let rect = { sx:sx0, sy:sy0, sw:fw, sh:fh, empty:true };
-          if (MANUAL_TRIM[key]) rect = applyManualTrim(rect, fw, fh, MANUAL_TRIM[key]);
-          return rect;
+          return { sx:sx0, sy:sy0, sw:fw, sh:fh, empty:true };
         }
-
-        let rect = { sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, empty:false };
-        if (MANUAL_TRIM[key]) rect = applyManualTrim(rect, fw, fh, MANUAL_TRIM[key]);
-        return rect;
+        return { sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, empty:false };
       }
 
       const frames=[];
@@ -267,7 +300,6 @@
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
 
-    // Helper: devuelve frame válido (evita celdas “vacías”)
     function pickFrame(sheetKey, seq, counter){
       const S = Sheets[sheetKey];
       if (!S) return 0;
@@ -289,14 +321,14 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ===== Dibujo (recorte por contenido y anclaje a suelo) =====
+    // ===== Dibujo =====
     function drawTrimmed(sheetKey, frameIndex, x, y, w, h, scaleMul=1, yNudge=0){
       const S=Sheets[sheetKey];
       if(!S){ ctx.fillStyle='#334155'; ctx.fillRect(x|0,y|0,w,h); return; }
       const f=S.frames[Math.max(0, Math.min(frameIndex|0, S.total-1))];
 
       const base = Math.min(w / f.sw, h / f.sh) * SPRITE_SCALE * (scaleMul||1);
-      const scale = Math.max(0.25, Math.round(base*4)/4); // snap 0.25x
+      const scale = Math.max(0.25, Math.round(base*4)/4);
 
       const dw = Math.max(1, Math.round(f.sw * scale));
       const dh = Math.max(1, Math.round(f.sh * scale));
@@ -440,7 +472,9 @@
     }
 
     // ===== Física & Update =====
-    function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+    function rectsOverlap(a,b){
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
 
     function update(dt){
       if (paused) return;
@@ -455,7 +489,8 @@
 
       player.canShoot-=dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
-        stones.push({ x: player.x + player.w, y: player.y + 12, w: 8, h: 8, vx: 660, vy: 0, color: '#d1d5db', from:'player' });
+        // Disparo un poco más alto (pecho)
+        stones.push({ x: player.x + player.w, y: player.y + Math.floor(player.h*0.45), w: 9, h: 9, vx: 660, vy: 0, color: '#d1d5db', from:'player' });
         player.canShoot=PLAYER.stoneCooldown; pFrame=0; pTimer=0;
       }
 
@@ -465,10 +500,19 @@
       if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
       if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
 
-      for(let i=stones.length-1;i>=0;i--){ const s=stones[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
+      for(let i=stones.length-1;i>=0;i--){
+        const s=stones[i];
+        s.x+=s.vx*dt; s.y+=s.vy*dt;
+        if (s.x - cameraX > W+60) stones.splice(i,1);
+      }
 
       spawnTimer -= dt; 
-      if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
+      if (spawnTimer<=0){
+        spawnEnemy(elapsed);
+        spawnInterval=Math.max(0.65, spawnInterval-0.0045);
+        spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15);
+        if (elapsed>90 && maxEnemies<24) maxEnemies=24;
+      }
 
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
@@ -480,7 +524,6 @@
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
 
-        // Decay de animación de ataque
         if (e._hold && e._hold > 0) e._hold -= dt;
 
         if (e.projectile){
@@ -489,7 +532,7 @@
             if (e.projectile==='flecha'){
               enemyProjectiles.push({ x:e.x, y:e.y+8, w:12, h:4, vx:-390, vy:0, color:'#fcd34d', from:'enemy' });
               e.shootCD=(e.tRef?.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-              e._hold = 0.35; // anim de ataque breve
+              e._hold = 0.35;
             } else if (e.projectile==='fuego'){
               enemyProjectiles.push({ x:e.x, y:e.y+10, w:10, h:10, vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:'#fb7185', from:'enemy', gravity: 520 });
               e.shootCD=(e.tRef?.shootCooldown||1.5) + (Math.random()*0.5);
@@ -507,11 +550,18 @@
         if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
       }
 
+      // ——— Daño de piedras al enemigo (hitbox ligeramente agrandado) ———
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
         for(let j=stones.length-1;j>=0;j--){
           const s=stones[j];
-          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
+          const sb = { x:s.x-2, y:s.y-2, w:s.w+4, h:s.h+4 }; // 2px de holgura
+          if (rectsOverlap(e,sb)){
+            e.hp-=1; stones.splice(j,1);
+            score+=5;
+            if (e.hp<=0){ score+=e.score; enemies.splice(i,1); }
+            break;
+          }
         }
       }
 
@@ -625,7 +675,8 @@
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
-    // ===== Input =====  (NO redeclarar `keys` aquí)
+    // ===== Input =====
+    let keys={};
     window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
@@ -660,8 +711,7 @@
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
     // Helpers debug
-    window.__erdGrid = GRID;
-    window.__erdSheet = k => Sheets[k];
+    window.__erdSheets = Sheets;
   })();
   </script>
 </body>
