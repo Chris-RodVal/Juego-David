@@ -122,7 +122,7 @@
       { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
     ];
 
-    // ===== Sprites originales =====
+    // ===== Sprites =====
     const SOURCES = {
       david: "David.png",
       soldado: "Soldado_basico.png",
@@ -135,14 +135,14 @@
       roca: "Roca.png",
     };
 
-    // ===== Carga + Prepro: chroma-key + auto-slice por transparencia =====
-    const Sheets = {};         // {key: {img, frames:[{sx,sy,sw,sh}], w,h}}
+    // ===== Carga + Prepro =====
+    const Sheets = {};         // {key: {imgCanvas, frames:[{sx,sy,sw,sh}], w,h}}
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
     function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 
-    // Convierte color del píxel (0,0) en transparente, con tolerancia
-    function chromaToTransparent(img, tol=24){
+    // Chroma key más conservador (tolerancia baja) // FIX
+    function chromaToTransparent(img, tol=10){
       const w=img.naturalWidth, h=img.naturalHeight;
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       const g=c.getContext('2d', {willReadFrequently:true});
@@ -152,61 +152,83 @@
       const r0=d[0], g0=d[1], b0=d[2];
       for(let i=0;i<d.length;i+=4){
         const dr=d[i]-r0, dg=d[i+1]-g0, db=d[i+2]-b0;
-        if (Math.abs(dr)<=tol && Math.abs(dg)<=tol && Math.abs(db)<=tol){
-          d[i+3]=0; // transparente
+        // distancia Manhattan (más estricta que Euclid al ojo) // FIX
+        if (Math.abs(dr)+Math.abs(dg)+Math.abs(db) <= tol){
+          d[i+3]=0;
         }
       }
       g.putImageData(id,0,0);
       return c;
     }
 
-    // Detecta bandas activas (con alfa>0) por filas y columnas, devolviendo frames rectangulares ordenados
-    function autoSliceByAlpha(canvas, minGap=6, minFill=6){
+    // Auto-slice: filtra basura pequeña y fusiona gaps chicos // FIX
+    function autoSliceByAlpha(canvas){
       const w=canvas.width, h=canvas.height;
       const g=canvas.getContext('2d', {willReadFrequently:true});
       const id=g.getImageData(0,0,w,h).data;
 
+      const MIN_FILL=24;     // tamaño mínimo de recorte aceptado (ancho/alto) // FIX
+      const MIN_AREA=MIN_FILL*MIN_FILL*0.3; // área mínima // FIX
+      const MERGE_GAP=10;    // fusiona huecos menores a esto // FIX
+      const PAD=1;
+
+      // filas activas
       const rowActive=new Array(h).fill(false);
       for(let y=0;y<h;y++){
-        for(let x=0;x<w;x++){
-          if (id[(y*w+x)*4+3]>0){ rowActive[y]=true; break; }
-        }
+        for(let x=0;x<w;x++){ if (id[(y*w+x)*4+3]>0){ rowActive[y]=true; break; } }
       }
-      // compactar en bandas de filas
+      // bandas horizontales
       const rowBands=[];
       let s=-1;
       for(let y=0;y<=h;y++){
-        const act = (y<h)? rowActive[y]: false;
+        const act=(y<h)?rowActive[y]:false;
         if (act && s<0) s=y;
-        if (!act && s>=0){ if (y-s>=minFill) rowBands.push([s,y-1]); s=-1; }
+        if (!act && s>=0){ if (y-s>=MIN_FILL){ rowBands.push([s,y-1]); } s=-1; }
       }
 
       const frames=[];
       for(const [y0,y1] of rowBands){
-        // para cada banda horizontal, buscar segmentos de columnas activos
+        // columnas activas dentro de la banda
         const colActive=new Array(w).fill(false);
         for(let x=0;x<w;x++){
-          for(let y=y0;y<=y1;y++){
-            if (id[(y*w+x)*4+3]>0){ colActive[x]=true; break; }
+          for(let y=y0;y<=y1;y++){ if (id[(y*w+x)*4+3]>0){ colActive[x]=true; break; } }
+        }
+        // fusiona huecos pequeños
+        let runStart=null;
+        const segments=[];
+        for(let x=0;x<=w;x++){
+          const act=(x<w)?colActive[x]:false;
+          if (act && runStart===null) runStart=x;
+          if (!act && runStart!==null){
+            segments.push([runStart,x-1]);
+            runStart=null;
           }
         }
-        let a=-1;
-        for(let x=0;x<=w;x++){
-          const act = (x<w)? colActive[x]: false;
-          if (act && a<0) a=x;
-          if (!act && a>=0){ 
-            if (x-a>=minFill){ 
-              // aplicar un pequeño padding interno para recortar márgenes residuales
-              const pad=1;
-              const sx=Math.max(a+pad,0), sy=Math.max(y0+pad,0);
-              const sw=Math.max(x-a-2*pad,1), sh=Math.max(y1-y0+1-2*pad,1);
-              frames.push({sx,sy,sw,sh});
-            }
-            a=-1; 
-          }
+        // unir con MERGE_GAP
+        const merged=[];
+        for(const seg of segments){
+          if (!merged.length) { merged.push(seg); continue; }
+          const last=merged[merged.length-1];
+          if (seg[0]-last[1]-1 <= MERGE_GAP){ last[1]=seg[1]; }
+          else merged.push(seg);
+        }
+        // emitir recortes filtrados
+        for(const [x0,x1] of merged){
+          const sx=Math.max(x0+PAD,0), sy=Math.max(y0+PAD,0);
+          const sw=Math.max(x1-x0+1-2*PAD,1), sh=Math.max(y1-y0+1-2*PAD,1);
+          if (sw<MIN_FILL || sh<MIN_FILL || (sw*sh)<MIN_AREA) continue; // filtro // FIX
+          frames.push({sx,sy,sw,sh, area:sw*sh});
         }
       }
-      return frames;
+
+      // Orden estable por Y luego X, y priorizar cuadros grandes (evitar chispas) // FIX
+      frames.sort((a,b)=> (a.sy-b.sy) || (a.sx-b.sx));
+      const TOP_N = 16; // tope de frames por sheet (suficiente para caminar/atacar) // FIX
+      const selected = frames
+        .sort((a,b)=> b.area-a.area) // primero por tamaño
+        .slice(0, TOP_N)
+        .sort((a,b)=> (a.sy-b.sy) || (a.sx-b.sx)); // luego orden reproducible
+      return selected.length ? selected : frames;
     }
 
     async function loadAll(){
@@ -214,9 +236,8 @@
       for (const [key,src] of entries){
         try{
           const img = await loadImage(src);
-          // FIX: quitar fondo opaco
-          const transparentCanvas = chromaToTransparent(img, 28); // tolerancia un poco mayor por banding
-          const frames = autoSliceByAlpha(transparentCanvas, 8, 8);
+          const transparentCanvas = chromaToTransparent(img, 10);    // FIX: tol baja
+          const frames = autoSliceByAlpha(transparentCanvas);         // FIX: slice robusto
           if (!frames.length){
             console.warn(`[slice] No se detectaron frames para ${key}. Usaré la imagen completa.`);
             frames.push({sx:0, sy:0, sw:transparentCanvas.width, sh:transparentCanvas.height});
@@ -234,25 +255,25 @@
     }
     loadAll();
 
-    // ===== Secuencias (independientes del conteo real; envolvemos por módulo) =====
-    const PLAYER_SEQ = { idle:[0,1], walk:[2,3,4,5], sling:[6,7,8] };
-    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.14;
+    // ===== Secuencias (seguros; modulo sobre lo que exista) =====
+    const PLAYER_SEQ = { idle:[0,1,0,1], walk:[2,3,4,5], sling:[6,7,8,7] };
+    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12; // FIX pRate un poco más fluido
 
     const ENEMY_SEQ = {
-      soldado:{ idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      arquero:{ idle:[0,1], walk:[2,3,4,5], atk:[6,7,8] },
+      soldado:{ idle:[0,1,0,1], walk:[2,3,4,5], atk:[6,7,6,7] },
+      arquero:{ idle:[0,1], walk:[2,3,4,5], atk:[6,7,8,7] },
       bruto:{   idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
       ladron:{  idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
       leon:{    idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
       oso:{     idle:[0,1], walk:[2,3,4,5], atk:[6,7] },
-      demonio:{ idle:[0,1], atk:[2,3] },
+      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] },
       roca:{    roll:[0,1,2,3] }
     };
     const ENEMY_RATE = {
-      soldado:0.15, arquero:0.16, bruto:0.18, ladron:0.12, leon:0.12, oso:0.14, demonio:0.12, roca:0.10
+      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
     };
 
-    // ===== Tipos (tamaños un poco mayores para legibilidad) =====
+    // ===== Tipos =====
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:28, h:44, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:26, h:42, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -348,8 +369,13 @@
       }
       const frames=S.frames;
       if (!frames || !frames.length){ ctx.drawImage(S.imgCanvas, 0,0,S.w,S.h, x|0,y|0,w,h); return; }
-      const f=frames[(frameIndex|0) % frames.length];
-      ctx.drawImage(S.imgCanvas, f.sx, f.sy, f.sw, f.sh, x|0, y|0, w, h);
+      const f=frames[Math.abs(frameIndex) % frames.length];
+      // Alinear por "suelo": dibuja de forma que el borde inferior del recorte toque el borde inferior del destino // FIX
+      const scaleX = w / f.sw, scaleY = h / f.sh;
+      const dw = f.sw * scaleX, dh = f.sh * scaleY;
+      const dx = (x|0) + ((w - dw) * 0.5);        // centrado horizontal
+      const dy = (y|0) + (h - dh);                // pegado al suelo
+      ctx.drawImage(S.imgCanvas, f.sx, f.sy, f.sw, f.sh, dx, dy, dw, dh);
     }
 
     function safeSeqFrame(seqs, anim, tick){
@@ -361,7 +387,7 @@
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
       pTimer+=dt;
-      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%8; } // 8 como tapa segura
+      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%12; } // hasta 12, suficiente // FIX
       const fid = safeSeqFrame(PLAYER_SEQ, pAnim, pFrame);
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
       drawFrame('david', fid, px, py, p.w, p.h);
@@ -562,7 +588,6 @@
     // ===== Helpers debug =====
     window.__erdFrames = () => Object.fromEntries(Object.entries(Sheets).map(([k,v])=>[k, v.frames.length]));
     window.__erdShowBoxes = (on=true) => {
-      // Dibuja bounding boxes del siguiente render
       const _draw = drawFrame;
       drawFrame = function(sheetKey, idx, x, y, w, h){
         _draw(sheetKey, idx, x, y, w, h);
