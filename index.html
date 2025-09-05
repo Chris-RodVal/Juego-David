@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>El Reino de David: Escape del Valle</title>
 
-  <!-- Preload para fallback HTMLAudio -->
   <link rel="preload" as="audio" href="musica.mp3">
   <link rel="preload" as="audio" href="audio1.mp3">
 
@@ -25,7 +24,7 @@
     }
     .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
-    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
     h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
     .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
@@ -48,7 +47,6 @@
 <body>
   <div class="wrap">
     <div class="stage">
-      <!-- Fallback <audio> (si WebAudio no disponible) -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
@@ -115,7 +113,7 @@
     const hudScore  = document.getElementById('hudScore');
     const controlsPanel = document.getElementById('controlsPanel');
     const bgmLobby = document.getElementById('bgmLobby');
-    const bgmGameEl  = document.getElementById('bgmGame'); // fallback
+    const bgmGameEl  = document.getElementById('bgmGame');
     const bgmLose  = document.getElementById('bgmLose');
 
     // ===== Constantes =====
@@ -126,9 +124,9 @@
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     // Escala visual global
-    const SPRITE_SCALE = 0.64; // 0.58–0.70
+    const SPRITE_SCALE = 0.64;
 
-    // Ajustes visuales por sprite (no afectan colisión)
+    // Ajustes visuales por sprite
     const VISUAL_TWEAKS = {
       bruto:   { scaleMul: 0.95, yNudge: 0 },
       leon:    { scaleMul: 0.92, yNudge: 0 },
@@ -149,7 +147,6 @@
       roca:    "Roca.png",
     };
 
-    // Pistas por si la autodetección falla
     const GRID_HINT = {
       david:   { cols: 6, rows: 4 },
       soldado: { cols: 6, rows: 4 },
@@ -162,7 +159,7 @@
       demonio: { cols: 2, rows: 2 },
     };
 
-    // ===== Carga + recorte por CELDA =====
+    // ===== Carga + recorte =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
     const ALPHA_THRESHOLD = 24;
@@ -176,7 +173,6 @@
       });
     }
 
-    // Autodetecta grilla: busca columnas/filas totalmente transparentes
     function detectGridByAlpha(img){
       const w = img.naturalWidth, h = img.naturalHeight;
       const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
@@ -194,7 +190,6 @@
         }
       }
 
-      // runs de columnas con contenido
       const colRuns=[]; let i=0;
       while(i<w){
         while(i<w && !colHas[i]) i++;
@@ -202,7 +197,6 @@
         let j=i; while(j<w && colHas[j]) j++;
         colRuns.push([i,j]); i=j;
       }
-      // runs de filas con contenido
       const rowRuns=[]; i=0;
       while(i<h){
         while(i<h && !rowHas[i]) i++;
@@ -213,20 +207,11 @@
 
       const cols = Math.max(1, colRuns.length);
       const rows = Math.max(1, rowRuns.length);
-
-      // Si no se detecta nada útil, devolvemos null
       if (cols*rows <= 1) return null;
-
-      // Promedios para info
-      const avgW = colRuns.reduce((s,r)=>s+(r[1]-r[0]),0)/cols;
-      const avgH = rowRuns.reduce((s,r)=>s+(r[1]-r[0]),0)/rows;
-
-      console.log('[AutoGrid]', {cols, rows, avgW:avgW|0, avgH:avgH|0});
       return { cols, rows };
     }
 
     function buildGridWithTrim(key, img){
-      // 1) Intento auto-grid
       const auto = detectGridByAlpha(img) || GRID_HINT[key] || {cols:1,rows:1};
       const cols = auto.cols|0, rows = auto.rows|0;
 
@@ -280,7 +265,7 @@
     }
     loadAll();
 
-    // ===== Secuencias de animación =====
+    // ===== Secuencias =====
     function seqRange(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
 
     const PLAYER_SEQ = {
@@ -339,7 +324,7 @@
       ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy, dw, dh);
     }
 
-    // ===== Player / Enemigos (animación) =====
+    // ===== Player / Enemigos =====
     let pFrame=0, pTimer=0, pRate=0.12;
 
     function drawPlayer(p, dt){
@@ -489,7 +474,6 @@
 
       player.canShoot-=dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
-        // Disparo un poco más alto (pecho)
         stones.push({ x: player.x + player.w, y: player.y + Math.floor(player.h*0.45), w: 9, h: 9, vx: 660, vy: 0, color: '#d1d5db', from:'player' });
         player.canShoot=PLAYER.stoneCooldown; pFrame=0; pTimer=0;
       }
@@ -550,12 +534,11 @@
         if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
       }
 
-      // ——— Daño de piedras al enemigo (hitbox ligeramente agrandado) ———
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
         for(let j=stones.length-1;j>=0;j--){
           const s=stones[j];
-          const sb = { x:s.x-2, y:s.y-2, w:s.w+4, h:s.h+4 }; // 2px de holgura
+          const sb = { x:s.x-2, y:s.y-2, w:s.w+4, h:s.h+4 };
           if (rectsOverlap(e,sb)){
             e.hp-=1; stones.splice(j,1);
             score+=5;
@@ -600,7 +583,7 @@
       requestAnimationFrame(loop);
     }
 
-    // ===== Audio: WebAudio para arranque instantáneo =====
+    // ===== Audio (WebAudio + fallback) =====
     const AudioKit = (() => {
       let ctx=null, gameBuf=null, current=null, priming=false, ready=false;
 
@@ -675,8 +658,7 @@
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
-    // ===== Input =====
-    let keys={};
+    // ===== Input =====  (¡sin redeclarar `keys`!)
     window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
