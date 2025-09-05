@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>El Reino de David: Escape del Valle</title>
 
-  <!-- Preload de audio para reducir latencia al empezar -->
+  <!-- Preload de audio para reducir latencia -->
   <link rel="preload" as="audio" href="musica.mp3">
   <link rel="preload" as="audio" href="audio1.mp3">
 
@@ -121,60 +121,46 @@
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
 
-    // Tamaño jugador / físicas
+    // Físicas (sin cambios)
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
-    // Escala visual global (sin tocar físicas ni colisiones)
-    const SPRITE_SCALE = 0.66; // ajusta 0.6–0.7 a gusto
+    // Escala visual global (sin tocar físicas)
+    const SPRITE_SCALE = 0.66;
 
-    // Escala visual por tipo (opcional, multiplica a la global)
-    const VISUAL_SCALE_BY_TYPE = {
-      bruto: 0.9,
-      leon:  0.85,
-      oso:   0.85,
-      demonio: 0.9
-    };
-
-    const THEMES = [
-      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
-      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
-      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
-    ];
-
-    // ===== Sprites =====
+    // ===== Sprites ===== (archivos individuales, no spritesheets)
     const SOURCES = {
-      david: "David.png",
+      david:   "David.png",
       soldado: "Soldado_basico.png",
       arquero: "Arquero.png",
-      bruto: "Bruto.png",
-      ladron: "Ladron.png",
-      leon: "Leon.png",
-      oso: "Oso.png",
+      bruto:   "Bruto.png",
+      ladron:  "Ladron.png",
+      leon:    "Leon.png",
+      oso:     "Oso.png",
       demonio: "Demonio.png",
-      roca: "Roca.png",
+      roca:    "Roca.png",
     };
 
-    // ===== GRID FIJA por hoja =====
+    // ===== GRID: 1×1 por archivo (arregla el “cinta”) =====
     const GRID = {
-      david:   { cols: 6, rows: 4 },
-      soldado: { cols: 6, rows: 4 },
-      arquero: { cols: 6, rows: 4 },
-      bruto:   { cols: 6, rows: 4 },
-      ladron:  { cols: 6, rows: 4 },
-      leon:    { cols: 6, rows: 4 },
-      oso:     { cols: 6, rows: 4 },
-      roca:    { cols: 6, rows: 4 },
-      demonio: { cols: 2, rows: 2 },  // 1024×1024 esperado
+      david:   { cols: 1, rows: 1 },
+      soldado: { cols: 1, rows: 1 },
+      arquero: { cols: 1, rows: 1 },
+      bruto:   { cols: 1, rows: 1 },
+      ladron:  { cols: 1, rows: 1 },
+      leon:    { cols: 1, rows: 1 },
+      oso:     { cols: 1, rows: 1 },
+      roca:    { cols: 1, rows: 1 },
+      demonio: { cols: 1, rows: 1 }
     };
 
-    // ===== Carga + recorte =====
+    // ===== Carga + recorte de bordes transparentes =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
     function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 
     function buildGridWithTrim(key, img){
-      const {cols, rows} = GRID[key] || {cols:1, rows:1};
+      const {cols, rows} = GRID[key];
       const fw = Math.floor(img.naturalWidth / cols);
       const fh = Math.floor(img.naturalHeight / rows);
 
@@ -199,17 +185,16 @@
             }
           }
         }
-        if (maxX<0 || maxY<0){ return { sx, sy, sw:0, sh:0, baseline:0, empty:true }; }
+        if (maxX<0 || maxY<0){ return { sx, sy, sw:fw, sh:fh, baseline:fh-1, empty:true }; }
         const sw = Math.max(1, (maxX - minX + 1));
         const sh = Math.max(1, (maxY - minY + 1));
-        const baseline = maxY - minY;
-        return { sx: sx+minX, sy: sy+minY, sw, sh, baseline, empty:false };
+        const baseline = maxY; // píxel más bajo no transparente
+        return { sx: sx+minX, sy: sy+minY, sw, sh, baseline, empty:false, cellW:fw, cellH:fh };
       }
 
       const frames=[];
       for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cellInfo(c,r));
-      const total = frames.length;
-      Sheets[key] = { img, fw, fh, cols, rows, total, frames };
+      Sheets[key] = { img, fw, fh, cols, rows, total: frames.length, frames };
     }
 
     async function loadAll(){
@@ -223,52 +208,10 @@
         }
       }
       SPRITES_READY = true;
-      setTimeout(()=>{
-        const t = Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, total:s.total}]));
-        console.table(t);
-      },0);
     }
     loadAll();
 
-    // ===== Secuencias y velocidades =====
-    function seqRange(a,b){ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; }
-
-    const PLAYER_SEQ_RAW = {
-      idle: seqRange(6,9),
-      walk: seqRange(12,15),
-      sling: [18,19,20,21]
-    };
-
-    const ENEMY_SEQ_RAW = {
-      soldado:{ idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      arquero:{ idle:seqRange(6,9),  walk:seqRange(12,17), atk:seqRange(18,21) },
-      bruto:{   idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      ladron:{  idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      leon:{    idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      oso:{     idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      roca:{    roll:seqRange(12,15) },
-      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
-    };
-
-    const ENEMY_RATE = {
-      soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
-    };
-
-    const SheetsRef = () => Sheets;
-    function sanitizeSeq(sheetKey, arr){
-      const S = SheetsRef()[sheetKey];
-      if (!S) return arr;
-      const total = S.total;
-      const out = [];
-      for (const i of arr){
-        const f = ((i%total)+total)%total;
-        const info = S.frames[f];
-        if (info && !info.empty) out.push(f);
-      }
-      return out.length ? out : [0];
-    }
-
-    // ===== Tipos =====
+    // ===== (No usamos animaciones por frames, 1×1) =====
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -280,80 +223,54 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ===== Dibujo =====
+    // ===== Dibujo: respeta la silueta real y apoya “los pies” al suelo =====
     function drawCell(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S){
         ctx.fillStyle='#1f2937'; ctx.fillRect(x|0,y|0,w,h);
-        ctx.strokeStyle='#94a3b8'; ctx.strokeRect(x|0,y|0,w,h);
         return;
       }
-      const total=S.total||1;
-      let f=((frameIndex|0)%total + total)%total;
-      let guard=0;
-      while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
-      const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
-
-      // --- Escala basada en CELDA, con multiplicador global y snapping ---
+      const f = S.frames[0]; // 1×1
+      // Escala basada en el frame recortado, con multiplicador global
       const scaleIdeal = Math.min(w / S.fw, h / S.fh) * SPRITE_SCALE;
-      const scale = Math.max(0.25, Math.round(scaleIdeal * 4) / 4); // pasos de 0.25x
+      const scale = Math.max(0.25, Math.round(scaleIdeal * 4) / 4);
 
-      const cellDw = S.fw * scale;
+      const cellDw = S.fw * scale;      // tamaño de la “celda”
       const cellDh = S.fh * scale;
 
-      const dw = info.sw * scale;
-      const dh = info.sh * scale;
+      const dw = f.sw * scale;          // tamaño del recorte real
+      const dh = f.sh * scale;
 
-      // Offset del recorte dentro de su celda original
-      const offX = (info.sx % S.fw) * scale;
-      const offY = (info.sy % S.fh) * scale;
+      const offX = (f.sx % S.fw) * scale;
+      const offY = (f.sy % S.fh) * scale;
 
-      // Colocar apoyado al “suelo” de la caja w×h
+      // Alinear a suelo: colocamos la base de la celda sobre y+h, y dentro de la celda
+      // la imagen queda a su offset. Así no “flota” ni se entierra.
       const baseX = (x|0) + ((w - cellDw) * 0.5);
       const baseY = (y|0) + (h - cellDh);
 
       const dx = (baseX + offX) | 0;
       const dy = (baseY + offY) | 0;
 
-      ctx.drawImage(S.img, info.sx, info.sy, info.sw, info.sh, dx, dy, dw, dh);
+      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy, dw, dh);
     }
 
-    function sanitizeAndPick(sheetKey, seqRaw, tick){
-      const arr = sanitizeSeq(sheetKey, seqRaw);
-      return arr[tick % arr.length];
-    }
-
-    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
+    let pFrame=0, pTimer=0, pRate=0.20;
 
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
-      pTimer+=dt;
-      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; }
-      const fid = sanitizeAndPick('david', PLAYER_SEQ_RAW[pAnim]||[0], pFrame);
+      pTimer+=dt; if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%1; }
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
-      drawCell('david', fid, px, py, p.w, p.h);
+      drawCell('david', 0, px, py, p.w, p.h);
     }
 
     function drawEnemySprite(e, dt){
-      if (!e.anim) e.anim=(e.flyer?'idle':(e.roller?'roll':'walk'));
-      e.timer=(e.timer||0)+dt;
-      const rate=ENEMY_RATE[e.type]||0.14;
-      if (e.timer>rate){ e.timer=0; e.frame=(e.frame==null?0:e.frame)+1; }
-
       if (!e.flyer && !e.roller){
         ctx.fillStyle='rgba(0,0,0,.25)';
         ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
       }
       const px=(e.x - cameraX), py=e.y;
-      const seq = ENEMY_SEQ_RAW[e.type]?.[e.anim] || ENEMY_SEQ_RAW[e.type]?.walk || [0];
-      const fid = sanitizeAndPick(e.type, seq, e.frame||0);
-
-      // Escala visual específica por tipo (multiplica la caja de dibujo)
-      const localScale = VISUAL_SCALE_BY_TYPE[e.type] ?? 1;
-      const vw = e.w * localScale;
-      const vh = e.h * localScale;
-
-      drawCell(e.type, fid, px, py, vw, vh);
+      drawCell(e.type, 0, px, py, e.w, e.h);
     }
 
     // ===== Spawning =====
@@ -370,7 +287,7 @@
     function spawnEnemy(timeSec){
       if (enemies.length>maxEnemies) return;
       const t=pickEnemyType(timeSec);
-      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + (Math.random()*200+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2, anim:null, frame:0, timer:0, animHold:0 };
+      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + (Math.random()*200+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2, frame:0, timer:0 };
       e.y = e.ground ? (groundY - e.h) : (120 + Math.random()*140);
       enemies.push(e);
       if (Math.random()<0.12){ const extra=1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1)}); }
@@ -395,11 +312,16 @@
       score=0; cameraX=0; paused=false;
       timeStart=performance.now(); elapsed=0;
       spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
-      pAnim="idle"; pFrame=0; pTimer=0;
+      pFrame=0; pTimer=0;
     }
 
-    // ===== Fondo =====
+    // ===== Fondo (igual que antes) =====
     let ashParticles=[];
+    const THEMES = [
+      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
+      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
+      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
+    ];
     function currentTheme(){ const idx=Math.floor(elapsed/60)%THEMES.length; return THEMES[idx]; }
     function drawBackground(dt){
       const T=currentTheme();
@@ -441,7 +363,7 @@
       }
     }
 
-    // ===== Física & Update =====
+    // ===== Física & Update (igual) =====
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
     function update(dt){
@@ -449,18 +371,17 @@
       cameraX += (player.x - cameraX - 240) * 0.06;
 
       const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
-      if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; pAnim='walk'; }
-      if (keys['ArrowRight']||keys['d']){ player.vx= accel; pAnim='walk'; }
-      if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])){ player.vx*=player.onGround?FRICTION:1; if (pAnim!=='sling') pAnim='idle'; }
+      if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; }
+      if (keys['ArrowRight']||keys['d']){ player.vx= accel; }
+      if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])){ player.vx*=player.onGround?FRICTION:1; }
       if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
       player.duck=!!(keys['ArrowDown']||keys['s']);
 
       player.canShoot-=dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
         stones.push({ x: player.x + player.w, y: player.y + 12, w: 8, h: 8, vx: 660, vy: 0, color: '#d1d5db', from:'player' });
-        player.canShoot=PLAYER.stoneCooldown; pAnim='sling'; pFrame=0; pTimer=0;
+        player.canShoot=PLAYER.stoneCooldown; pFrame=0; pTimer=0;
       }
-      if (pAnim==='sling' && pFrame>= 6){ pAnim = (Math.abs(player.vx)>40)?'walk':'idle'; }
 
       player.vy += GRAVITY*dt;
       player.x  += player.vx*dt; player.y += player.vy*dt;
@@ -475,25 +396,21 @@
 
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
-        if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; e.anim=(e.animHold>0?'atk':'idle'); }
-        else if (e.roller){ e.vx=-e.speed; e.anim='roll'; }
-        else { e.vx=-e.speed + (e.type==='ladron'?-50:0); e.anim=(e.animHold>0?'atk':'walk'); }
-
+        if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
+        else if (e.roller){ e.vx=-e.speed; }
+        else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
-        if (e.animHold>0) e.animHold -= dt;
 
-        if (e.projectile && (e.shootCD!==undefined)){
+        if (e.projectile){
           e.shootCD -= dt;
           if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
             if (e.projectile==='flecha'){
               enemyProjectiles.push({ x:e.x, y:e.y+8, w:12, h:4, vx:-390, vy:0, color:'#fcd34d', from:'enemy' });
               e.shootCD=(e.tRef?.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-              e.anim='atk'; e.frame=0; e.animHold=0.35;
             } else if (e.projectile==='fuego'){
               enemyProjectiles.push({ x:e.x, y:e.y+10, w:10, h:10, vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:'#fb7185', from:'enemy', gravity: 520 });
               e.shootCD=(e.tRef?.shootCooldown||1.5) + (Math.random()*0.5);
-              e.anim='atk'; e.frame=0; e.animHold=0.4;
             }
           }
         }
@@ -514,11 +431,6 @@
           if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
         }
       }
-
-      if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
-      const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h:player.duck?player.h-10:player.h };
-      for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
-      for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
 
       elapsed = (performance.now() - timeStart)/1000;
       hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
@@ -560,7 +472,6 @@
       state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
       resetGame(); updateHearts();
 
-      // Audio: parar lobby, iniciar música de juego apenas esté lista
       try{ bgmLobby.pause(); }catch(e){}
 
       try {
@@ -574,7 +485,7 @@
             bgmGame.play().catch(()=>{});
           };
           bgmGame.addEventListener('canplaythrough', onReady, { once:true });
-          bgmGame.load(); // fuerza precarga/decodificación
+          bgmGame.load();
         }
       } catch(e){}
 
@@ -605,7 +516,7 @@
     btnRestart.addEventListener('click', startGame);
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby (autoplay-friendly: solo tras interacción)
+    // Música lobby (autoplay-friendly: tras interacción)
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
@@ -621,7 +532,7 @@
 
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
-    // ===== Helpers debug =====
+    // Helpers
     window.__erdGrid = GRID;
     window.__erdSheet = k => Sheets[k];
   })();
