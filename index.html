@@ -115,7 +115,9 @@
     // ===== Constantes =====
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
-    const PLAYER = { w: 30, h: 46, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
+
+    // Tamaño jugador (AJUSTAR) // FIX scale
+    const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
@@ -253,15 +255,16 @@
     }
 
     // ===== Tipos =====
+    // ENEMY_TYPES (AJUSTAR w/h por tipo; NO tocar demonio) // FIX scale
     const ENEMY_TYPES = [
-      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:28, h:44, ground:true },
-      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:26, h:42, ground:true, shootCooldown:1.3, projectile:'flecha' },
-      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:36, h:52, ground:true },
-      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:24, h:38, ground:true },
-      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:44, h:32, ground:true },
-      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:56, h:38, ground:true },
-      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, ground:false, flyer:true, shootCooldown:1.5, projectile:'fuego' },
-      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:26, h:26, ground:true, roller:true }
+      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
+      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
+      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:30, h:44, ground:true },
+      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:19, h:32, ground:true },
+      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true },
+      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true },
+      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, ground:false, flyer:true, shootCooldown:1.5, projectile:'fuego' }, // sin cambios
+      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
     // ===== Proyectiles =====
