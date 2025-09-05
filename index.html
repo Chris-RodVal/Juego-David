@@ -33,6 +33,7 @@
     .controls-panel { position: absolute; left: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
     .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
     .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
+    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
 
     @media (max-width: 980px) {
       canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
@@ -47,6 +48,19 @@
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
       <canvas id="game" width="960" height="540"></canvas>
+
+      <div id="controlsPanel" class="controls-panel">
+        <h3>Controles</h3>
+        <ul>
+          <li>← / → : Mover</li>
+          <li>↑ : Saltar</li>
+          <li>↓ : Agacharse</li>
+          <li>ESPACIO : Lanzar piedra (honda)</li>
+          <li>P : Pausar</li>
+          <li>I : Mostrar/Ocultar ayuda</li>
+        </ul>
+        <div class="hint">Consejo: mantén distancia, los arqueros y demonios ahora son más agresivos.</div>
+      </div>
 
       <div id="startOverlay" class="overlay">
         <div class="panel">
@@ -77,10 +91,12 @@
 
   <script>
   (() => {
+    // ===== Canvas =====
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
+    // ===== UI =====
     const startOverlay   = document.getElementById('startOverlay');
     const gameOverOverlay= document.getElementById('gameOverOverlay');
     const btnStart       = document.getElementById('btnStart');
@@ -96,10 +112,11 @@
     const bgmGame  = document.getElementById('bgmGame');
     const bgmLose  = document.getElementById('bgmLose');
 
+    // ===== Constantes =====
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
 
-    // Tamaños visibles (como los dejaste)
+    // Tamaño jugador (dejamos tus valores “buenos”)
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
     const THEMES = [
@@ -108,6 +125,7 @@
       { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
     ];
 
+    // ===== Sprites =====
     const SOURCES = {
       david: "David.png",
       soldado: "Soldado_basico.png",
@@ -120,6 +138,7 @@
       roca: "Roca.png",
     };
 
+    // ===== GRID FIJA por hoja =====
     const GRID = {
       david:   { cols: 6, rows: 4 },
       soldado: { cols: 6, rows: 4 },
@@ -129,9 +148,10 @@
       leon:    { cols: 6, rows: 4 },
       oso:     { cols: 6, rows: 4 },
       roca:    { cols: 6, rows: 4 },
-      demonio: { cols: 2, rows: 2 },
+      demonio: { cols: 2, rows: 2 },  // 1024x1024
     };
 
+    // ===== Carga + construcción de celdas con recorte y baseline =====
     const Sheets = {};
     let SPRITES_READY = false, SPRITES_FAILED = [];
 
@@ -187,9 +207,14 @@
         }
       }
       SPRITES_READY = true;
+      setTimeout(()=>{
+        const t = Object.fromEntries(Object.entries(Sheets).map(([k,s])=>[k, {cols:s.cols, rows:s.rows, total:s.total}]));
+        console.table(t);
+      },0);
     }
     loadAll();
 
+    // ===== Secuencias y velocidades =====
     function seqRange(a,b){ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; }
 
     const PLAYER_SEQ_RAW = {
@@ -209,11 +234,13 @@
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
 
+    // FIX: ENEMY_RATE único
     const ENEMY_RATE = {
       soldado:0.14, arquero:0.15, bruto:0.16, ladron:0.12, leon:0.12, oso:0.13, demonio:0.12, roca:0.10
     };
 
-    const SheetsRef = () => Sheets;
+    // Filtra índices que apunten a celdas vacías
+    const SheetsRef = () => Sheets; // helper por cierre
     function sanitizeSeq(sheetKey, arr){
       const S = SheetsRef()[sheetKey];
       if (!S) return arr;
@@ -227,7 +254,7 @@
       return out.length ? out : [0];
     }
 
-    // Tamaños visibles (como los traías “bien”)
+    // ===== Tipos ===== (tamaños “buenos”)
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -239,7 +266,7 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ==== DIBUJO PIXEL-PERFECT ====
+    // ===== Dibujo (REVISADO: pixel-perfect por celda) =====
     function drawCell(sheetKey, frameIndex, x, y, w, h){
       const S=Sheets[sheetKey];
       if (!S){
@@ -253,25 +280,21 @@
       while (S.frames[f]?.empty && guard<total){ f=(f+1)%total; guard++; }
       const info = S.frames[f] || {sx:0,sy:0,sw:1,sh:1,baseline:0,empty:false};
 
-      // ---- Escala basada en la CELDA fija, no en el recorte ----
-      // Esto mantiene el mismo pixel-size entre frames.
+      // --- Escala basada en la CELDA fija (no en el recorte) ---
       const scaleIdeal = Math.min(w / S.fw, h / S.fh);
-      // Snap a pasos de 1/2 para evitar micro-blur. Ajusta a 1 si quieres solo enteros.
-      const scale = Math.max(0.5, Math.round(scaleIdeal * 2) / 2);
+      const scale = Math.max(0.5, Math.round(scaleIdeal * 2) / 2); // snap a 0.5x
 
-      // Tamaño de la celda escalada y del recorte dentro de esa celda
       const cellDw = S.fw * scale;
       const cellDh = S.fh * scale;
+
       const dw = info.sw * scale;
       const dh = info.sh * scale;
 
-      // Offset del recorte dentro de su celda original (en píxeles de fuente)
+      // Offset del recorte dentro de su celda original
       const offX = (info.sx % S.fw) * scale;
       const offY = (info.sy % S.fh) * scale;
 
-      // Alineación: la "caja lógica" (w×h) toca el suelo en y+h.
-      // Colocamos la celda escalada apoyada al suelo y centrada horizontalmente,
-      // y dentro ubicamos el recorte con su offset.
+      // Colocar la celda escalada apoyada al suelo de la caja w×h
       const baseX = (x|0) + ((w - cellDw) * 0.5);
       const baseY = (y|0) + (h - cellDh);
 
@@ -286,15 +309,54 @@
       return arr[tick % arr.length];
     }
 
-    // ====== Resto del juego (igual) ======
     let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
 
-    const PROJ = {
-      piedra: { speed: 660, w: 8, h: 8, color: '#d1d5db', gravity:0, from:'player' },
-      flecha: { speed: 390, w: 12, h: 4, color: '#fcd34d', gravity:0, from:'enemy' },
-      fuego:  { speed: 300, w: 10, h:10, color: '#fb7185', gravity: 520, from:'enemy' }
-    };
+    function drawPlayer(p, dt){
+      const px=(p.x - cameraX), py=p.y;
+      pTimer+=dt;
+      if (pTimer > pRate){ pTimer=0; pFrame=(pFrame+1)%24; }
+      const fid = sanitizeAndPick('david', PLAYER_SEQ_RAW[pAnim]||[0], pFrame);
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
+      drawCell('david', fid, px, py, p.w, p.h);
+    }
 
+    function drawEnemySprite(e, dt){
+      if (!e.anim) e.anim=(e.flyer?'idle':(e.roller?'roll':'walk'));
+      e.timer=(e.timer||0)+dt;
+      const rate=ENEMY_RATE[e.type]||0.14;
+      if (e.timer>rate){ e.timer=0; e.frame=(e.frame==null?0:e.frame)+1; }
+
+      if (!e.flyer && !e.roller){
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
+      }
+      const px=(e.x - cameraX), py=e.y;
+      const seq = ENEMY_SEQ_RAW[e.type]?.[e.anim] || ENEMY_SEQ_RAW[e.type]?.walk || [0];
+      const fid = sanitizeAndPick(e.type, seq, e.frame||0);
+      drawCell(e.type, fid, px, py, e.w, e.h);
+    }
+
+    // ===== Spawning =====
+    function pickEnemyType(timeSec){
+      const t=timeSec, pool=[];
+      push('soldado',4); push('ladron',4); push('arquero',4); push('roca',2);
+      if (t>20){ push('bruto',3); push('leon',3); }
+      if (t>35){ push('oso',2); }
+      if (t>25){ push('demonio',3); }
+      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
+      const key=pool[(Math.random()*pool.length)|0];
+      return ENEMY_TYPES.find(e=>e.key===key);
+    }
+    function spawnEnemy(timeSec){
+      if (enemies.length>maxEnemies) return;
+      const t=pickEnemyType(timeSec);
+      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + (Math.random()*200+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2, anim:null, frame:0, timer:0, animHold:0 };
+      e.y = e.ground ? (groundY - e.h) : (120 + Math.random()*140);
+      enemies.push(e);
+      if (Math.random()<0.12){ const extra=1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1)}); }
+    }
+
+    // ===== Estado =====
     let state='start', keys={}, cameraX=0;
     let player, stones=[], enemies=[], enemyProjectiles=[];
     let timeStart=0, elapsed=0, score=0, paused=false;
@@ -316,6 +378,7 @@
       pAnim="idle"; pFrame=0; pTimer=0;
     }
 
+    // ===== Fondo =====
     let ashParticles=[];
     function currentTheme(){ const idx=Math.floor(elapsed/60)%THEMES.length; return THEMES[idx]; }
     function drawBackground(dt){
@@ -354,16 +417,15 @@
       for(let x=-((Math.floor(cameraX))%16); x<W; x+=16){
         ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
         ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
-        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillStyle=T.grass2; ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
       }
     }
 
+    // ===== Dibujo player/enemigos =====
     function sanitizeAndPick(sheetKey, seqRaw, tick){
       const arr = sanitizeSeq(sheetKey, seqRaw);
       return arr[tick % arr.length];
     }
-
-    let pAnim="idle", pFrame=0, pTimer=0, pRate=0.12;
 
     function drawPlayer(p, dt){
       const px=(p.x - cameraX), py=p.y;
@@ -390,25 +452,7 @@
       drawCell(e.type, fid, px, py, e.w, e.h);
     }
 
-    function pickEnemyType(timeSec){
-      const t=timeSec, pool=[];
-      push('soldado',4); push('ladron',4); push('arquero',4); push('roca',2);
-      if (t>20){ push('bruto',3); push('leon',3); }
-      if (t>35){ push('oso',2); }
-      if (t>25){ push('demonio',3); }
-      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
-      const key=pool[(Math.random()*pool.length)|0];
-      return ENEMY_TYPES.find(e=>e.key===key);
-    }
-    function spawnEnemy(timeSec){
-      if (enemies.length>maxEnemies) return;
-      const t=pickEnemyType(timeSec);
-      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + ((Math.random()*200)+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2, anim:null, frame:0, timer:0, animHold:0 };
-      e.y = e.ground ? (groundY - e.h) : (120 + Math.random()*140);
-      enemies.push(e);
-      if (Math.random()<0.12){ const extra=1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1)}); }
-    }
-
+    // ===== Física & Update =====
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
     function update(dt){
@@ -495,15 +539,25 @@
     function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); updateHearts(); }
     function updateHearts(){ const hearts='❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent=`Vida: ${hearts}`; }
 
+    // ===== Render =====
     function render(dt){
       drawBackground(dt);
       stones.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
       enemies.forEach(e=>drawEnemySprite(e, dt));
       enemyProjectiles.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
       drawPlayer(player, dt);
+
+      if (!SPRITES_READY || SPRITES_FAILED.length){
+        ctx.fillStyle='rgba(0,0,0,.6)';
+        ctx.fillRect(8,8,520,56);
+        ctx.fillStyle='#fde68a'; ctx.font='12px monospace';
+        ctx.fillText(`Sprites listos: ${SPRITES_READY ? 'sí' : 'no'}`, 16, 26);
+        if (SPRITES_FAILED.length){ ctx.fillStyle='#fca5a5'; ctx.fillText(`Fallaron: ${SPRITES_FAILED.join(', ')}`, 16, 44); }
+      }
     }
 
-    let last=0, paused=false;
+    // ===== Loop =====
+    let last=0;
     function loop(ts){
       const now = ts || performance.now();
       const dt = Math.min(0.033, (now-last)/1000) || 0.016;
@@ -512,6 +566,7 @@
       requestAnimationFrame(loop);
     }
 
+    // ===== Flujo & Audio =====
     function startGame(){
       state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); resetGame(); updateHearts();
       try{ bgmLobby.pause(); }catch(e){}
@@ -521,15 +576,16 @@
     }
     function gameOver(){
       state='gameover';
-      const best= +localStorage.getItem('erd_best') || 0;
-      if (elapsed>best) localStorage.setItem('erd_best', String(Math.floor(elapsed)));
-      timeSurvivedEl.textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(Math.floor(elapsed%60)).padStart(2,'0')}`;
-      bestTimeEl.textContent=timeSurvivedEl.textContent;
+      const best=getBest(); if (elapsed>best) setBest(elapsed);
+      timeSurvivedEl.textContent=fmtTime(elapsed);
+      bestTimeEl.textContent=fmtTime(getBest());
       gameOverOverlay.classList.remove('hidden');
       try{ bgmGame.pause(); }catch(e){}
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
+    // ===== Input =====
+    let keys={};
     window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
@@ -540,8 +596,23 @@
 
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
+    bestStart.textContent = fmtTime(getBest());
+
+    // Música lobby (autoplay-friendly: sólo se intenta tras una interacción)
+    let triedLobby=false;
+    function ensureLobbyPlay(){
+      if (state!=='start'||triedLobby) return;
+      triedLobby=true;
+      try{ bgmLobby.volume=0.55; bgmLobby.currentTime=0; const p=bgmLobby.play(); if (p&&p.catch) p.catch(()=>{ triedLobby=false; }); }catch(e){ triedLobby=false; }
+    }
+    ['pointerdown','keydown','touchstart','pointermove'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
+    btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
+
+    // ===== Helpers debug =====
+    window.__erdGrid = GRID;
+    window.__erdSheet = k => Sheets[k];
   })();
   </script>
 </body>
