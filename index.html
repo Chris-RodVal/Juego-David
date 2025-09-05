@@ -120,13 +120,11 @@
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400, FRICTION = 0.85;
 
-    // Físicas
     const PLAYER = { w: 24, h: 36, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
-    // Escala visual global
+    // Escala global (visual)
     const SPRITE_SCALE = 0.64;
 
-    // Ajustes visuales por sprite
     const VISUAL_TWEAKS = {
       bruto:   { scaleMul: 0.95, yNudge: 0 },
       leon:    { scaleMul: 0.92, yNudge: 0 },
@@ -147,6 +145,7 @@
       roca:    "Roca.png",
     };
 
+    // Pista de grid conocida
     const GRID_HINT = {
       david:   { cols: 6, rows: 4 },
       soldado: { cols: 6, rows: 4 },
@@ -164,86 +163,57 @@
     let SPRITES_READY = false, SPRITES_FAILED = [];
     const ALPHA_THRESHOLD = 24;
 
-    function loadImage(src){
-      return new Promise((res, rej)=>{
-        const im=new Image();
-        im.onload=()=>res(im);
-        im.onerror=rej;
-        im.src=src;
-      });
-    }
+    function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 
     function detectGridByAlpha(img){
       const w = img.naturalWidth, h = img.naturalHeight;
-      const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
-      const tg = tmp.getContext('2d', {willReadFrequently:true});
-      tg.drawImage(img,0,0);
-      const data = tg.getImageData(0,0,w,h).data;
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      const g = c.getContext('2d', {willReadFrequently:true}); g.drawImage(img,0,0);
+      const d = g.getImageData(0,0,w,h).data;
 
       const colHas = new Array(w).fill(false);
       const rowHas = new Array(h).fill(false);
-
-      for(let y=0;y<h;y++){
-        for(let x=0;x<w;x++){
-          const a = data[(y*w + x)*4 + 3];
-          if (a>ALPHA_THRESHOLD){ colHas[x]=true; rowHas[y]=true; }
-        }
+      for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+        const a = d[(y*w+x)*4+3]; if(a>ALPHA_THRESHOLD){ colHas[x]=true; rowHas[y]=true; }
       }
-
-      const colRuns=[]; let i=0;
-      while(i<w){
-        while(i<w && !colHas[i]) i++;
-        if (i>=w) break;
-        let j=i; while(j<w && colHas[j]) j++;
-        colRuns.push([i,j]); i=j;
-      }
-      const rowRuns=[]; i=0;
-      while(i<h){
-        while(i<h && !rowHas[i]) i++;
-        if (i>=h) break;
-        let j=i; while(j<h && rowHas[j]) j++;
-        rowRuns.push([i,j]); i=j;
-      }
-
-      const cols = Math.max(1, colRuns.length);
-      const rows = Math.max(1, rowRuns.length);
-      if (cols*rows <= 1) return null;
-      return { cols, rows };
+      const runs = arr => { const out=[]; let i=0; while(i<arr.length){ while(i<arr.length && !arr[i]) i++; if(i>=arr.length) break; let j=i; while(j<arr.length && arr[j]) j++; out.push([i,j]); i=j; } return out; };
+      const cols=runs(colHas).length||1, rows=runs(rowHas).length||1;
+      return (cols*rows>1)?{cols,rows}:null;
     }
 
     function buildGridWithTrim(key, img){
       const auto = detectGridByAlpha(img) || GRID_HINT[key] || {cols:1,rows:1};
       const cols = auto.cols|0, rows = auto.rows|0;
-
       const fw = Math.floor(img.naturalWidth / Math.max(1,cols));
       const fh = Math.floor(img.naturalHeight / Math.max(1,rows));
 
-      const tmp = document.createElement('canvas');
-      tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
-      const tg = tmp.getContext('2d', {willReadFrequently:true});
-      tg.drawImage(img,0,0);
-      const data = tg.getImageData(0,0,tmp.width,tmp.height).data;
+      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const g = c.getContext('2d', {willReadFrequently:true}); g.drawImage(img,0,0);
+      const data = g.getImageData(0,0,c.width,c.height).data;
 
-      function cellInfo(c,r){
-        const sx0=c*fw, sy0=r*fh;
+      function cellInfo(cidx,ridx){
+        const sx0=cidx*fw, sy0=ridx*fh;
         let minX=fw, minY=fh, maxX=-1, maxY=-1;
-
         for(let y=0;y<fh;y++){
           const gy=sy0+y;
           for(let x=0;x<fw;x++){
             const gx=sx0+x;
-            const a=data[(gy*tmp.width + gx)*4 + 3];
+            const a=data[(gy*c.width + gx)*4 + 3];
             if(a>ALPHA_THRESHOLD){
               if(x<minX)minX=x; if(y<minY)minY=y;
               if(x>maxX)maxX=x; if(y>maxY)maxY=y;
             }
           }
         }
-
         if(maxX<0||maxY<0){
-          return { sx:sx0, sy:sy0, sw:fw, sh:fh, empty:true };
+          return { sx:sx0, sy:sy0, sw:fw, sh:fh, ox:0, oy:0, empty:true };
         }
-        return { sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, empty:false };
+        // Guardamos offset dentro de la celda (ox, oy)
+        return {
+          sx:sx0+minX, sy:sy0+minY,
+          sw:maxX-minX+1, sh:maxY-minY+1,
+          ox:minX, oy:minY, empty:false
+        };
       }
 
       const frames=[];
@@ -253,48 +223,101 @@
 
     async function loadAll(){
       for (const [key,src] of Object.entries(SOURCES)){
-        try{
-          const img = await loadImage(src);
-          buildGridWithTrim(key, img);
-        }catch(e){
-          console.warn(`[Sprites] Falló ${key}:`, e);
-          SPRITES_FAILED.push(key);
-        }
+        try{ const img = await loadImage(src); buildGridWithTrim(key, img); }
+        catch(e){ console.warn(`[Sprites] Falló ${key}:`, e); SPRITES_FAILED.push(key); }
       }
       SPRITES_READY = true;
     }
     loadAll();
 
     // ===== Secuencias =====
-    function seqRange(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
-
-    const PLAYER_SEQ = {
-      idle: seqRange(6,9),
-      walk: seqRange(12,15),
-      sling: [18,19,20,21]
-    };
-
-    const ENEMY_SEQ = {
-      soldado:{ idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      arquero:{ idle:seqRange(6,9),  walk:seqRange(12,17), atk:seqRange(18,21) },
-      bruto:  { idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      ladron: { idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      leon:   { idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      oso:    { idle:seqRange(6,9),  walk:seqRange(12,15), atk:seqRange(18,21) },
-      roca:   { roll:seqRange(12,15) },
+    const R = (a,b)=>{const r=[];for(let i=a;i<=b;i++)r.push(i);return r;};
+    const PLAYER_SEQ = { idle:R(6,9), walk:R(12,15), sling:[18,19,20,21] };
+    const ENEMY_SEQ  = {
+      soldado:{ idle:R(6,9),  walk:R(12,15), atk:R(18,21) },
+      arquero:{ idle:R(6,9),  walk:R(12,17), atk:R(18,21) },
+      bruto:  { idle:R(6,9),  walk:R(12,15), atk:R(18,21) },
+      ladron: { idle:R(6,9),  walk:R(12,15), atk:R(18,21) },
+      leon:   { idle:R(6,9),  walk:R(12,15), atk:R(18,21) },
+      oso:    { idle:R(6,9),  walk:R(12,15), atk:R(18,21) },
+      roca:   { roll:R(12,15) },
       demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
     };
 
     function pickFrame(sheetKey, seq, counter){
-      const S = Sheets[sheetKey];
-      if (!S) return 0;
-      const valid = seq
-        .map(i => (i % S.total + S.total) % S.total)
-        .filter(i => !S.frames[i]?.empty);
+      const S = Sheets[sheetKey]; if(!S) return 0;
+      const valid = seq.map(i=>((i%S.total)+S.total)%S.total).filter(i=>!S.frames[i]?.empty);
       return valid.length ? valid[counter % valid.length] : 0;
     }
 
-    // ===== Tipos =====
+    // ===== Dibujo ANCLADO A CELDA =====
+    function drawCellAnchored(sheetKey, frameIndex, x, y, w, h, scaleMul=1, yNudge=0){
+      const S=Sheets[sheetKey];
+      if(!S){ ctx.fillStyle='#334155'; ctx.fillRect(x|0,y|0,w,h); return; }
+      const total=S.total||1;
+      let f=((frameIndex|0)%total + total)%total;
+      const info = S.frames[f] || {sx:0,sy:0,sw:S.fw,sh:S.fh,ox:0,oy:0,empty:true};
+
+      // Escala basada en el TAMAÑO DE CELDA (consistente)
+      const scale = Math.max(0.25, Math.round((Math.min(w/S.fw, h/S.fh) * SPRITE_SCALE * (scaleMul||1)) * 4) / 4);
+
+      const cellDw = S.fw * scale;
+      const cellDh = S.fh * scale;
+
+      // Base de la celda, apoyada al suelo del box w×h
+      const baseX = (x|0) + ((w - cellDw) * 0.5);
+      const baseY = (y|0) + (h - cellDh);
+
+      // Offset dentro de la celda (ox/oy) escalado
+      const dx = Math.round(baseX + info.ox * scale);
+      const dy = Math.round(baseY + info.oy * scale + (yNudge||0));
+
+      const dw = Math.max(1, Math.round(info.sw * scale));
+      const dh = Math.max(1, Math.round(info.sh * scale));
+
+      // Clip a la caja del actor para evitar “asomar” nada
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(Math.floor(x), Math.floor(y), Math.ceil(w), Math.ceil(h));
+      ctx.clip();
+      ctx.drawImage(S.img, info.sx, info.sy, info.sw, info.sh, dx, dy, dw, dh);
+      ctx.restore();
+    }
+
+    // ===== Animación =====
+    let pFrame=0, pTimer=0, pRate=0.12;
+
+    function drawPlayer(p, dt){
+      pTimer += dt; if (pTimer >= pRate){ pTimer -= pRate; pFrame = (pFrame + 1) | 0; }
+      const moving = Math.abs(p.vx) > 40 && p.onGround;
+      const seq = moving ? PLAYER_SEQ.walk : PLAYER_SEQ.idle;
+      const fid = pickFrame('david', seq, pFrame);
+
+      const px=(p.x - cameraX), py=p.y;
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
+      drawCellAnchored('david', fid, px, py, p.w, p.h);
+    }
+
+    function drawEnemySprite(e, dt){
+      if (!e._t){ e._t=0; e._f=0; }
+      const rate = e.roller ? 0.08 : 0.12;
+      e._t += dt; if (e._t >= rate){ e._t -= rate; e._f = (e._f + 1) | 0; }
+
+      if (!e.flyer && !e.roller){
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
+      }
+
+      const mode = e._hold>0 ? 'atk' : (e.roller ? 'roll' : (e.flyer ? 'idle' : 'walk'));
+      const seq = ENEMY_SEQ[e.type]?.[mode] || ENEMY_SEQ[e.type]?.walk || [0];
+      const fid = pickFrame(e.type, seq, e._f);
+
+      const px=(e.x - cameraX), py=e.y;
+      const tweak = VISUAL_TWEAKS[e.type] || {};
+      drawCellAnchored(e.type, fid, px, py, e.w, e.h, tweak.scaleMul||1, tweak.yNudge||0);
+    }
+
+    // ===== Spawning =====
     const ENEMY_TYPES = [
       { key:'soldado', hp:3, speed:130, damage:1, score:20, w:22, h:36, ground:true },
       { key:'arquero', hp:2, speed:105, damage:1, score:35, w:21, h:34, ground:true, shootCooldown:1.3, projectile:'flecha' },
@@ -306,81 +329,19 @@
       { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true }
     ];
 
-    // ===== Dibujo =====
-    function drawTrimmed(sheetKey, frameIndex, x, y, w, h, scaleMul=1, yNudge=0){
-      const S=Sheets[sheetKey];
-      if(!S){ ctx.fillStyle='#334155'; ctx.fillRect(x|0,y|0,w,h); return; }
-      const f=S.frames[Math.max(0, Math.min(frameIndex|0, S.total-1))];
-
-      const base = Math.min(w / f.sw, h / f.sh) * SPRITE_SCALE * (scaleMul||1);
-      const scale = Math.max(0.25, Math.round(base*4)/4);
-
-      const dw = Math.max(1, Math.round(f.sw * scale));
-      const dh = Math.max(1, Math.round(f.sh * scale));
-
-      const dx = Math.round(x + (w - dw) * 0.5);
-      const dy = Math.round(y + h - dh + (yNudge||0));
-
-      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy, dw, dh);
-    }
-
-    // ===== Player / Enemigos =====
-    let pFrame=0, pTimer=0, pRate=0.12;
-
-    function drawPlayer(p, dt){
-      pTimer += dt;
-      if (pTimer >= pRate){ pTimer -= pRate; pFrame = (pFrame + 1) | 0; }
-
-      const px=(p.x - cameraX), py=p.y;
-      const moving = Math.abs(p.vx) > 40 && p.onGround;
-      const seq = moving ? PLAYER_SEQ.walk : PLAYER_SEQ.idle;
-      const fid = pickFrame('david', seq, pFrame);
-
-      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, p.w+10, 3);
-      drawTrimmed('david', fid, px, py, p.w, p.h);
-    }
-
-    function drawEnemySprite(e, dt){
-      if (!e._t){ e._t=0; e._f=0; }
-      const rate = e.roller ? 0.08 : 0.12;
-      e._t += dt;
-      if (e._t >= rate){ e._t -= rate; e._f = (e._f + 1) | 0; }
-
-      if (!e.flyer && !e.roller){
-        ctx.fillStyle='rgba(0,0,0,.25)';
-        ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
-      }
-
-      const mode =
-        e._hold && e._hold > 0 ? 'atk' :
-        (e.roller ? 'roll' : (e.flyer ? 'idle' : 'walk'));
-
-      const seq =
-        (ENEMY_SEQ[e.type] && ENEMY_SEQ[e.type][mode]) ?
-          ENEMY_SEQ[e.type][mode] :
-          (ENEMY_SEQ[e.type]?.walk || [0]);
-
-      const px=(e.x - cameraX), py=e.y;
-      const tweak = VISUAL_TWEAKS[e.type] || {};
-      const fid = pickFrame(e.type, seq, e._f);
-      drawTrimmed(e.type, fid, px, py, e.w, e.h, tweak.scaleMul||1, tweak.yNudge||0);
-    }
-
-    // ===== Spawning =====
     function pickEnemyType(timeSec){
       const t=timeSec, pool=[];
-      add('soldado',4); add('ladron',4); add('arquero',4); add('roca',2);
-      if (t>20){ add('bruto',3); add('leon',3); }
-      if (t>35){ add('oso',2); }
-      if (t>25){ add('demonio',3); }
-      function add(k,n){ for(let i=0;i<n;i++) pool.push(k); }
-      const key=pool[(Math.random()*pool.length)|0];
-      return ENEMY_TYPES.find(e=>e.key===key);
+      push('soldado',4); push('ladron',4); push('arquero',4); push('roca',2);
+      if (t>20){ push('bruto',3); push('leon',3); }
+      if (t>35){ push('oso',2); }
+      if (t>25){ push('demonio',3); }
+      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
+      return ENEMY_TYPES.find(e=>e.key===pool[(Math.random()*pool.length)|0]);
     }
     function spawnEnemy(timeSec){
       if (enemies.length>maxEnemies) return;
       const t=pickEnemyType(timeSec);
-      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + (Math.random()*200+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2 };
+      const e={ type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + (Math.random()*200+20), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2, _hold:0 };
       e.y = e.ground ? (groundY - e.h) : (120 + Math.random()*140);
       enemies.push(e);
       if (Math.random()<0.12){ const extra=1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1)}); }
@@ -452,15 +413,17 @@
       for(let x=-((Math.floor(cameraX))%16); x<W; x+=16){
         ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
         ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
-        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillStyle=T.grass2; ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
       }
     }
 
-    // ===== Física & Update =====
-    function rectsOverlap(a,b){
-      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    // ===== Utilidad =====
+    const rectsOverlap = (a,b)=> a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    function getPlayerHitbox(){
+      return { x:player.x, y:player.y + (player.duck?10:0), w:player.w, h:player.duck?player.h-10:player.h };
     }
 
+    // ===== Update =====
     function update(dt){
       if (paused) return;
       cameraX += (player.x - cameraX - 240) * 0.06;
@@ -490,7 +453,7 @@
         if (s.x - cameraX > W+60) stones.splice(i,1);
       }
 
-      spawnTimer -= dt; 
+      spawnTimer -= dt;
       if (spawnTimer<=0){
         spawnEnemy(elapsed);
         spawnInterval=Math.max(0.65, spawnInterval-0.0045);
@@ -508,7 +471,7 @@
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
 
-        if (e._hold && e._hold > 0) e._hold -= dt;
+        if (e._hold && e._hold>0) e._hold -= dt;
 
         if (e.projectile){
           e.shootCD -= dt;
@@ -534,17 +497,35 @@
         if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
       }
 
+      // Colisiones: piedras -> enemigos
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
         for(let j=stones.length-1;j>=0;j--){
           const s=stones[j];
           const sb = { x:s.x-2, y:s.y-2, w:s.w+4, h:s.h+4 };
           if (rectsOverlap(e,sb)){
-            e.hp-=1; stones.splice(j,1);
-            score+=5;
+            e.hp-=1; stones.splice(j,1); score+=5;
             if (e.hp<=0){ score+=e.score; enemies.splice(i,1); }
             break;
           }
+        }
+      }
+
+      // Colisiones: enemigo / proyectil -> jugador
+      if (player.inv>0) { player.inv -= dt; if (player.inv<0) player.inv=0; }
+      const pHit = getPlayerHitbox();
+
+      for (let i=enemyProjectiles.length-1;i>=0;i--){
+        const pr=enemyProjectiles[i];
+        if (rectsOverlap(pHit, pr)){
+          if (player.inv===0) damagePlayer(1);
+          enemyProjectiles.splice(i,1);
+        }
+      }
+      for (let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if (rectsOverlap(pHit, e)){
+          if (player.inv===0) damagePlayer(Math.max(1, e.damage|0));
         }
       }
 
@@ -586,40 +567,13 @@
     // ===== Audio (WebAudio + fallback) =====
     const AudioKit = (() => {
       let ctx=null, gameBuf=null, current=null, priming=false, ready=false;
-
-      async function ensureCtx(){
-        if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); }
-        if (ctx.state==='suspended') await ctx.resume();
-        return ctx;
-      }
-      async function prime(){
-        if (ready) return true;
-        if (priming) { while(priming) await new Promise(r=>setTimeout(r,30)); return ready; }
-        priming = true;
-        try{
-          await ensureCtx();
-          if(!gameBuf){
-            const res = await fetch('musica.mp3', { cache:'force-cache' });
-            const ab  = await res.arrayBuffer();
-            gameBuf   = await ctx.decodeAudioData(ab);
-          }
-          ready = true;
-        }catch(e){ ready=false; }
-        priming = false;
-        return ready;
-      }
-      function playGame(vol=0.45){
-        if (!ready || !ctx) return false;
-        try{ current?.stop(0); }catch{}
-        const src=ctx.createBufferSource(); src.buffer=gameBuf; src.loop=true;
-        const gain=ctx.createGain(); gain.gain.value=vol;
-        src.connect(gain).connect(ctx.destination);
-        src.start();
-        current = src;
-        return true;
-      }
-      function stopCurrent(){ try{ current?.stop(0); }catch{} current=null; }
-
+      async function ensureCtx(){ if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); } if (ctx.state==='suspended') await ctx.resume(); return ctx; }
+      async function prime(){ if (ready) return true; if (priming){ while(priming) await new Promise(r=>setTimeout(r,30)); return ready; }
+        priming=true;
+        try{ await ensureCtx(); if(!gameBuf){ const res=await fetch('musica.mp3',{cache:'force-cache'}); const ab=await res.arrayBuffer(); gameBuf=await ctx.decodeAudioData(ab); } ready=true; }catch{ ready=false; }
+        priming=false; return ready; }
+      function playGame(vol=0.45){ if(!ready||!ctx) return false; try{current?.stop()}catch{} const src=ctx.createBufferSource(); src.buffer=gameBuf; src.loop=true; const gain=ctx.createGain(); gain.gain.value=vol; src.connect(gain).connect(ctx.destination); src.start(); current=src; return true; }
+      function stopCurrent(){ try{current?.stop()}catch{} current=null; }
       return { prime, playGame, stopCurrent };
     })();
 
@@ -629,17 +583,9 @@
       resetGame(); updateHearts();
 
       try{ bgmLobby.pause(); }catch(e){}
-
       const ok = await AudioKit.prime();
-      if (ok){
-        AudioKit.playGame(0.45);
-      }else{
-        try {
-          bgmGameEl.volume = 0.45;
-          bgmGameEl.currentTime = 0;
-          const p=bgmGameEl.play(); if(p&&p.catch) p.catch(()=>{});
-        } catch(e){}
-      }
+      if (ok){ AudioKit.playGame(0.45); }
+      else { try{ bgmGameEl.volume=0.45; bgmGameEl.currentTime=0; bgmGameEl.play().catch(()=>{}); }catch(e){} }
 
       try{ bgmLose.pause(); bgmLose.currentTime=0; }catch(e){}
       window.focus();
@@ -654,11 +600,10 @@
 
       AudioKit.stopCurrent();
       try{ bgmGameEl.pause(); }catch(e){}
-
       try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
     }
 
-    // ===== Input =====  (¡sin redeclarar `keys`!)
+    // ===== Input =====
     window.addEventListener('keydown', (e)=>{
       if (e.code==='Space') e.preventDefault();
       keys[e.key]=true;
@@ -673,26 +618,21 @@
 
     bestStart.textContent = fmtTime(getBest());
 
-    // Música lobby + prime temprano
+    // Música lobby + prime
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
       triedLobby=true;
-      try{
-        bgmLobby.volume=0.55; bgmLobby.currentTime=0;
-        const p=bgmLobby.play();
-        if (p&&p.catch) p.catch(()=>{ triedLobby=false; });
-      }catch(e){ triedLobby=false; }
+      try{ bgmLobby.volume=0.55; bgmLobby.currentTime=0; const p=bgmLobby.play(); if (p&&p.catch) p.catch(()=>{ triedLobby=false; }); }catch{ triedLobby=false; }
       AudioKit.prime();
     }
     ['pointerdown','keydown','touchstart','pointermove','pointerenter'].forEach(ev=>{
       window.addEventListener(ev, ensureLobbyPlay, { passive:true });
     });
-    btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
-    // Helpers debug
+    // Debug
     window.__erdSheets = Sheets;
   })();
   </script>
