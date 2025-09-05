@@ -579,5 +579,36 @@
     window.__erdSheet = k => Sheets[k];
   })();
   </script>
+  <script>
+// ===========================
+// FIX scale v2 (más pequeño)
+// ===========================
+
+// David ~0.6x del tamaño anterior
+Object.assign(PLAYER, { w: 18, h: 28 }); // antes v1: 24×36
+
+// Enemigos (mantener relaciones; demonio igual)
+const __erdScalePatchV2 = {
+  soldado: [17, 28],
+  arquero: [16, 26],
+  bruto:   [24, 36],
+  ladron:  [15, 24],
+  leon:    [28, 20],
+  oso:     [34, 23],
+  roca:    [16, 16],
+  // demonio: sin cambios
+};
+
+ENEMY_TYPES.forEach(t => {
+  const p = __erdScalePatchV2[t.key];
+  if (p) { t.w = p[0]; t.h = p[1]; }
+});
+
+// (Opcional) ver cajas para verificar proporciones rápidas
+// window.__erdShowBoxes = (on=true)=>{ window.__erdBoxesOn = on; };
+// const _fillRect = ctx.fillRect.bind(ctx);
+// ctx.fillRect = function(x,y,w,h){ if(window.__erdBoxesOn) { ctx.save(); ctx.globalAlpha=0.12; ctx.fillStyle='#00e5ff'; _fillRect(x,y,w,h); ctx.restore(); } _fillRect(x,y,w,h); };
+</script>
+
 </body>
 </html>
