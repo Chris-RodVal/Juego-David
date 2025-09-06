@@ -1,54 +1,74 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>El Reino de David: Escape del Valle</title>
-<style>
-  :root { color-scheme: dark; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: radial-gradient(1200px 600px at 50% -200px, #2a0f16 0%, #1a0b10 55%, #0a0a10 100%);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-    color: #e5e7eb;
-  }
-  .wrap { max-width: 1200px; margin: 14px auto; padding: 8px 12px; display: grid; place-items: center; gap: 10px; }
-  .stage { position: relative; width: 960px; height: 540px; }
-  canvas#game {
-    width: 960px; height: 540px; image-rendering: pixelated; image-rendering: crisp-edges;
-    background: #12070b; display: block; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
-  }
-  .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
-  .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
-  .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-  .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
-  h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
-  .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
-  .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-  button.pixel { appearance: none; border: 0; cursor: pointer; font-weight: 600; padding: 10px 16px; border-radius: 12px; font-size: 14px; background: linear-gradient(180deg,#7f1d1d,#450a0a); border: 1px solid #7f1d1d; color: #fde68a; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.25); transition: transform .05s ease, box-shadow .2s ease; }
-  button.pixel:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.35); }
-  button.pixel:active { transform: translateY(1px); }
-  .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
-  .hidden { display: none; }
-  .controls-panel { position: absolute; left: 10px; top: 10px; width: 300px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
-  .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
-  .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
-  .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
-  @media (max-width: 980px) {
-    canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
-    .hud { width: 96vw; }
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El Reino de David: Escape del Valle</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(1200px 600px at 50% -200px, #2a0f16 0%, #1a0b10 55%, #0a0a10 100%);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+      color: #e5e7eb; overflow: hidden;
+    }
+    .wrap { width: 100vw; height: 100vh; display: grid; place-items: center; }
+    .stage { position: relative; width: 100vw; height: 100vh; }
+
+    canvas#game {
+      width: 100vw; height: 100vh;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      background: #12070b; display: block;
+    }
+
+    /* HUD fijo arriba */
+    .hud {
+      position: fixed; left: 50%; top: 8px; transform: translateX(-50%);
+      width: min(1200px, 96vw); display: flex; flex-wrap: wrap;
+      justify-content: space-between; align-items: center; gap: 10px;
+      font-size: 14px; opacity: .95; user-select: none; z-index: 5;
+    }
+    .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
+
+    /* Overlays centrados sobre el canvas */
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 6; }
+    .panel { pointer-events: auto; width: 760px; max-width: 92vw;
+      background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96));
+      border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    }
+    h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
+    .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    button.pixel { appearance: none; border: 0; cursor: pointer; font-weight: 600; padding: 10px 16px; border-radius: 12px; font-size: 14px; background: linear-gradient(180deg,#7f1d1d,#450a0a); border: 1px solid #7f1d1d; color: #fde68a; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.25); transition: transform .05s ease, box-shadow .2s ease; }
+    button.pixel:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.35); }
+    button.pixel:active { transform: translateY(1px); }
+    .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
+    .hidden { display: none; }
+
+    .controls-panel {
+      position: fixed; left: 10px; bottom: 10px; width: 300px;
+      background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px;
+      padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; z-index: 7;
+    }
+    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
+    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
+    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+
+    @media (max-width: 980px) {
+      .controls-panel { width: calc(100vw - 24px); left: 12px; right: 12px; }
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="stage">
-      <!-- Audio -->
+    <div class="stage" id="stage">
+      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
 
-      <canvas id="game" width="960" height="540"></canvas>
+      <canvas id="game"></canvas>
 
       <div id="controlsPanel" class="controls-panel">
         <h3>Controles</h3>
@@ -57,20 +77,22 @@
           <li>↑ : Saltar</li>
           <li>↓ : Agacharse</li>
           <li>ESPACIO : Lanzar piedra (honda)</li>
-          <li>F : Lanzar panal (granada)</li>
+          <li>G : Lanzar panal (granada de abejas)</li>
+          <li>H : Tocar <b>harpa</b> (purga demonios)</li>
           <li>P : Pausar</li>
           <li>I : Mostrar/Ocultar ayuda</li>
         </ul>
-        <div class="hint">Aparecen panes cada 30 s (curan 1 ♥). Los panales explotan y arrasan un grupo.</div>
+        <div class="hint">Novedad: <b>PAN</b> cura · <b>PANALES</b> granadas · <b>HARPA</b> expulsa demonios.</div>
       </div>
 
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
-          <div class="subtitle">Sobrevive a las hordas. Recolecta pan y panales, mantente con vida.</div>
+          <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
           <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
           <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
-          <div class="muted" style="margin-top:8px">Controles: ←/→ mover, ↑ saltar, ↓ agacharse, ESPACIO honda, F panal, P pausar, I ayuda</div>
+          <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, <b>G</b> panal, <b>H</b> harpa, P, I</div>
+          <div class="muted" style="margin-top:6px">Se intentará abrir en <b>pantalla completa</b> al iniciar.</div>
         </div>
       </div>
 
@@ -84,526 +106,667 @@
     </div>
 
     <div class="hud" id="hud">
-      <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤</div>
+      <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤❤</div>
       <div class="tag" id="hudTime">Tiempo: 00:00</div>
       <div class="tag" id="hudScore">Puntos: 0</div>
-      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · F: panal · I: ayuda</div>
+      <div class="tag" id="hudItems">Panales: 0 · Harpa: —</div>
+      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · G: panal · H: harpa · I: ayuda</div>
     </div>
   </div>
 
-<script>
-(() => {
-  // ===== Canvas =====
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { alpha: true });
-  ctx.imageSmoothingEnabled = false;
+  <script>
+  (() => {
+    // ===== Canvas / UI =====
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d', { alpha:true });
+    ctx.imageSmoothingEnabled = false;
 
-  // ===== UI =====
-  const startOverlay   = document.getElementById('startOverlay');
-  const gameOverOverlay= document.getElementById('gameOverOverlay');
-  const btnStart       = document.getElementById('btnStart');
-  const btnRestart     = document.getElementById('btnRestart');
-  const bestStart      = document.getElementById('bestStart');
-  const bestTimeEl     = document.getElementById('bestTime');
-  const timeSurvivedEl = document.getElementById('timeSurvived');
-  const hudHealth = document.getElementById('hudHealth');
-  const hudTime   = document.getElementById('hudTime');
-  const hudScore  = document.getElementById('hudScore');
-  const controlsPanel = document.getElementById('controlsPanel');
-  const bgmLobby = document.getElementById('bgmLobby');
-  const bgmGame  = document.getElementById('bgmGame');
-  const bgmLose  = document.getElementById('bgmLose');
+    const stageEl        = document.getElementById('stage');
+    const startOverlay   = document.getElementById('startOverlay');
+    const gameOverOverlay= document.getElementById('gameOverOverlay');
+    const btnStart       = document.getElementById('btnStart');
+    const btnRestart     = document.getElementById('btnRestart');
+    const bestStart      = document.getElementById('bestStart');
+    const bestTimeEl     = document.getElementById('bestTime');
+    const timeSurvivedEl = document.getElementById('timeSurvived');
 
-  // ===== Constantes =====
-  const W = canvas.width, H = canvas.height;
-  const GRAVITY = 2400, FRICTION = 0.85;
-  const PLAYER = { w: 26, h: 40, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
-  const groundY = H - 78;
+    const hudHealth = document.getElementById('hudHealth');
+    const hudTime   = document.getElementById('hudTime');
+    const hudScore  = document.getElementById('hudScore');
+    const hudItems  = document.getElementById('hudItems');
 
-  // ===== Estado =====
-  let state='start', keys={}, cameraX=0;
-  let player, stones=[], enemies=[], enemyProjectiles=[];
-  let items=[]; // {type:'bread'|'hive', x,y,w,h}
-  let hives=0;  // inventario panales
-  let timeStart=0, elapsed=0, score=0, paused=false;
-  let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
-  let breadTimer=30, hiveTimer=38; // spawns
+    const controlsPanel = document.getElementById('controlsPanel');
+    const bgmLobby = document.getElementById('bgmLobby');
+    const bgmGame  = document.getElementById('bgmGame');
+    const bgmLose  = document.getElementById('bgmLose');
 
-  // ===== Util =====
-  const rnd=(a,b)=>a+Math.random()*(b-a);
-  const chance=p=>Math.random()<p;
-  const fmtTime = s=>{const m=(s/60|0), ss=(s%60|0); return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;};
-  const getBest=()=>+localStorage.getItem('erd_best')||0;
-  const setBest=v=>localStorage.setItem('erd_best', String(Math.floor(v)));
+    // ===== Constantes =====
+    let W = 960, H = 540, groundY = H - 78;
+    const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    function resizeCanvas() {
+      const cssW = Math.max(1, Math.floor(window.innerWidth));
+      const cssH = Math.max(1, Math.floor(window.innerHeight));
+      canvas.style.width  = cssW + 'px';
+      canvas.style.height = cssH + 'px';
+      canvas.width  = cssW * DPR;
+      canvas.height = cssH * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // 1 unidad lógica = 1 px CSS
+      ctx.imageSmoothingEnabled = false;
+      W = cssW; H = cssH;
+      groundY = H - 78; // piso relativo
+    }
+    window.addEventListener('resize', resizeCanvas, { passive:true });
+    resizeCanvas();
 
-  // ===== Sprites (grillas CORRECTAS) =====
-  const SPRITES = {
-    david:   { src:'David.png',            cols:5, rows:2, scale:1.00, yNudge:-1 }, // fila 0 caminar, fila 1 honda
-    soldado: { src:'Soldado_basico.png',   cols:4, rows:1, scale:1.00, yNudge:0  },
-    arquero: { src:'Arquero.png',          cols:6, rows:1, scale:1.00, yNudge:0  },
-    bruto:   { src:'Bruto.png',            cols:6, rows:1, scale:1.00, yNudge:0  },
-    ladron:  { src:'Ladron.png',           cols:6, rows:1, scale:1.00, yNudge:0  },
-    leon:    { src:'Leon.png',             cols:5, rows:1, scale:1.00, yNudge:0  },
-    oso:     { src:'Oso.png',              cols:5, rows:1, scale:1.00, yNudge:0  },
-    demonio: { src:'Demonio.png',          cols:2, rows:2, scale:1.00, yNudge:0  },
-    roca:    { src:'Roca.png',             cols:4, rows:1, scale:1.00, yNudge:0  },
-  };
+    const GRAVITY = 2400, FRICTION = 0.85;
+    const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
+    const THEMES = [
+      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#402b2b' },
+      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3f3321' },
+      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34', house:'#21383a' }
+    ];
+    const currentTheme = (t)=>THEMES[Math.floor(t/60)%THEMES.length];
 
-  const Sheets = {}; // key -> {img, frames:[{sx,sy,sw,sh,foot}] , fw, fh}
-  const ALPHA_T = 8; // mínimo alfa para considerar pixel
+    // ===== PNGs (sprites) =====
+    const SOURCES = {
+      david:"David.png", soldado:"Soldado_basico.png", arquero:"Arquero.png",
+      bruto:"Bruto.png", ladron:"Ladron.png", leon:"Leon.png",
+      oso:"Oso.png", demonio:"Demonio.png", roca:"Roca.png"
+    };
+    const GRID = {
+      david:{cols:5,rows:2}, soldado:{cols:4,rows:1}, arquero:{cols:6,rows:1},
+      bruto:{cols:6,rows:1}, ladron:{cols:6,rows:1}, leon:{cols:5,rows:1},
+      oso:{cols:5,rows:1}, demonio:{cols:2,rows:2}, roca:{cols:4,rows:1},
+    };
+    const ANIMS = {
+      david:{walk:[0,1,2,3,4], shoot:[5,6,7,8,9], idle:[0]},
+      soldado:{walk:[0,1,2,3], idle:[0]},
+      arquero:{walk:[0,1,2,3,4,5], idle:[3]},
+      bruto:{walk:[0,1,2,3,4,5], idle:[2]},
+      ladron:{walk:[0,1,2,3,4,5], idle:[0]},
+      leon:{walk:[0,1,2,3,4], idle:[2]},
+      oso:{walk:[0,1,2,3,4], idle:[2]},
+      roca:{roll:[0,1,2,3]},
+      demonio:{fly:[0,1], fire:[2,3], idle:[0]}
+    };
 
-  function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+    // ===== Carga + recorte (anti-sangrado) =====
+    const Sheets={}; let SPRITES_READY=false;
+    const ALPHA_THRESHOLD=160;
+    const SCAN_MARGIN_X=2, SCAN_MARGIN_Y=1;
 
-  // Corta por CELDAS de la grilla y dentro recorta a contenido (para que el pie quede bien).
-  function buildSheet(key, img, cols, rows){
-    const fw = Math.floor(img.naturalWidth/cols);
-    const fh = Math.floor(img.naturalHeight/rows);
-    const tmp = document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
-    const g = tmp.getContext('2d', { willReadFrequently:true }); g.drawImage(img,0,0);
-    const data = g.getImageData(0,0,tmp.width,tmp.height).data;
+    function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+    function buildGridWithTrim(key,img){
+      const {cols,rows}=GRID[key];
+      const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
+      const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
+      const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.drawImage(img,0,0);
+      const data=tg.getImageData(0,0,tmp.width,tmp.height).data;
 
-    const frames=[];
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
+      function cell(c,r){
         const sx0=c*fw, sy0=r*fh;
-        // scan dentro de la celda
         let minX=fw, minY=fh, maxX=-1, maxY=-1;
-        for(let y=0;y<fh;y++){
-          const yy=sy0+y;
-          for(let x=0;x<fw;x++){
-            const xx=sx0+x;
-            const a=data[(yy*tmp.width + xx)*4 + 3];
-            if(a>ALPHA_T){
-              if(x<minX)minX=x; if(y<minY)minY=y;
-              if(x>maxX)maxX=x; if(y>maxY)maxY=y;
+        const xStart=sx0+SCAN_MARGIN_X, xEnd=sx0+fw-SCAN_MARGIN_X;
+        const yStart=sy0+SCAN_MARGIN_Y, yEnd=sy0+fh-SCAN_MARGIN_Y;
+        for(let y=yStart;y<yEnd;y++){
+          for(let x=xStart;x<xEnd;x++){
+            const a=data[(y*tmp.width + x)*4 + 3];
+            if(a>ALPHA_THRESHOLD){
+              if(x-sx0<minX)minX=x-sx0;
+              if(y-sy0<minY)minY=y-sy0;
+              if(x-sx0>maxX)maxX=x-sx0;
+              if(y-sy0>maxY)maxY=y-sy0;
             }
           }
         }
-        if(maxX<0||maxY<0){ // celda vacía
-          frames.push({sx:sx0, sy:sy0, sw:fw, sh:fh, foot:fh-1});
-        }else{
-          frames.push({sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, foot:maxY});
-        }
+        if(maxX<0||maxY<0) return { sx:sx0, sy:sy0, sw:fw, sh:fh, footLocal:fh-1, empty:true };
+        const sw=maxX-minX+1, sh=maxY-minY+1;
+        return { sx:sx0+minX, sy:sy0+minY, sw, sh, footLocal:sh-1, empty:false };
       }
+      const frames=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cell(c,r));
+      Sheets[key]={ img, fw, fh, cols, rows, total:frames.length, frames };
     }
-    Sheets[key]={img, frames, fw, fh, cols, rows, total:frames.length};
-  }
+    (async()=>{ try{ for(const [k,src] of Object.entries(SOURCES)){ const im=await loadImage(src); buildGridWithTrim(k,im); } SPRITES_READY=true; }catch(e){ console.error('Sprites:',e); } })();
 
-  async function loadAll(){
-    for(const [key,def] of Object.entries(SPRITES)){
-      const im = await loadImage(def.src);
-      buildSheet(key, im, def.cols, def.rows);
+    const SPRITE_SCALE=0.64;
+    function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
+      const S=Sheets[sheetKey]; if(!S) return;
+      const f=S.frames[Math.max(0,Math.min(frameIdx|0,S.total-1))];
+      const base=Math.min(w/f.sw,h/f.sh)*SPRITE_SCALE*(scaleMul||1);
+      const scale=Math.max(0.25,Math.round(base*4)/4);
+      const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
+      const destBottom=Math.round(y+h+(yNudge||0));
+      const destTop=Math.round(destBottom - (f.footLocal+1)*scale);
+      const dx=Math.round(x+(w-dw)*0.5);
+      // Coordenadas 100% enteras (evita “doble” horizontal)
+      ctx.drawImage(S.img,f.sx|0,f.sy|0,f.sw|0,f.sh|0,dx|0,destTop|0,dw|0,dh|0);
     }
-  }
+    function animIndex(sheet, anim, t, fps){
+      const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0];
+      return seq[Math.floor(t*fps)%seq.length]||0;
+    }
 
-  let assetsReady=false;
-  loadAll().then(()=>assetsReady=true).catch(e=>console.warn('Sprites error',e));
-
-  // ===== Anim sets (índices) =====
-  function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
-  const ANIMS = {
-    david_walk: range(0,4),
-    david_sling: range(5,9),
-    oneRow(cols){ return range(0,cols-1); },
-    demonio: range(0,3)
-  };
-
-  // ===== Enemigos =====
-  const ENEMY_TYPES = [
-    { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:36, ground:true,  sheet:'soldado' },
-    { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:34, ground:true,  sheet:'arquero', shootCooldown:1.2, projectile:'flecha' },
-    { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:30, h:44, ground:true,  sheet:'bruto'   },
-    { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:19, h:32, ground:true,  sheet:'ladron'  },
-    { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true,  sheet:'leon'    },
-    { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true,  sheet:'oso'     },
-    { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, flyer:true,   sheet:'demonio', shootCooldown:1.5, projectile:'fuego' },
-    { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true,  sheet:'roca', roller:true }
-  ];
-
-  // ===== Dibujo de frame anclado al pie =====
-  function drawFrame(sheetKey, frameIndex, x, y, w, h){
-    const S=Sheets[sheetKey]; if(!S) return;
-    const def=SPRITES[sheetKey]||{scale:1,yNudge:0};
-    const f=S.frames[Math.max(0, Math.min(frameIndex|0, S.total-1))];
-    // escala por contenido
-    const base = Math.min(w/f.sw, h/f.sh) * (def.scale||1);
-    const scale = Math.max(0.25, Math.round(base*4)/4);
-    const dw=Math.max(1, Math.round(f.sw*scale));
-    const dh=Math.max(1, Math.round(f.sh*scale));
-    // pie local dentro del recorte
-    const footLocal = f.sh - (f.sh - f.foot - 1);
-    const dx = Math.round(x + (w - dw)*0.5);
-    const dy = Math.round(y + h - (dh - (f.sh-footLocal-1)*scale)) + (def.yNudge||0);
-    ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, dy - dh, dw, dh);
-  }
-
-  // ===== Anim helpers =====
-  function makeAnimator(frames, fps=8){
-    return { frames, fps, idx:0, acc:0,
-      step(dt){ this.acc+=dt; const sp=1/this.fps; while(this.acc>=sp){ this.acc-=sp; this.idx=(this.idx+1)%this.frames.length; } return this.frames[this.idx]; }
+    // ===== Entidades / Estados =====
+    const PROJ = {
+      piedra:{speed:660,w:8,h:8,color:'#d1d5db',gravity:0,from:'player'},
+      flecha:{speed:390,w:12,h:4,color:'#fcd34d',gravity:0,from:'enemy'},
+      fuego:{speed:300,w:10,h:10,color:'#fb7185',gravity:520,from:'enemy'}
     };
-  }
+    const ENEMY_TYPES=[
+      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true, sheet:'soldado', anim:'walk', fps:8 },
+      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, sheet:'arquero', anim:'walk', fps:8, shootCooldown:1.3, projectile:'flecha' },
+      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:34, h:50, ground:true, sheet:'bruto',   anim:'walk', fps:7 },
+      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:20, h:34, ground:true, sheet:'ladron',  anim:'walk', fps:12 },
+      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true, sheet:'leon',    anim:'walk', fps:10 },
+      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true, sheet:'oso',     anim:'walk', fps:7 },
+      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, flyer:true, ground:false, sheet:'demonio', anim:'fly', fps:6, shootCooldown:1.5, projectile:'fuego' },
+      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true, sheet:'roca', anim:'roll', fps:12 }
+    ];
 
-  // ===== Player / Draw =====
-  let pWalkAnim = makeAnimator(ANIMS.david_walk, 10);
-  let pSlingAnim = makeAnimator(ANIMS.david_sling, 18);
-  let slingShow = 0; // tiempo mostrando anim de honda
+    let state='start', keys={}, cameraX=0;
+    let player, stones=[], enemies=[], enemyProjectiles=[];
+    let timeStart=0, timeNow=0, elapsed=0, score=0, paused=false;
+    let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
 
-  function drawPlayer(p, dt){
-    const px = p.x - cameraX, py=p.y, w=p.w, h=p.h;
-    // sombra
-    ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect((px-5)|0, groundY-4, w+10, 3);
-    // frame
-    let frame;
-    if (slingShow>0){ slingShow-=dt; frame = pSlingAnim.step(dt); }
-    else { frame = pWalkAnim.step(dt); }
-    drawFrame('david', frame, px, py, w, h);
-  }
+    // Pickups y panales/harpa
+    let pickups=[];               // {type:'bread'|'hive'|'harp', x,y,w,h}
+    let breadTimer=30;            // s
+    let hiveTimer=45;             // s
+    let harpTimer=50;             // s
+    let beeBombs=[];              // {x,y,w,h,vx,vy,gravity}
+    let beeExplosions=[];         // efectos
+    let harpPulse=[];             // efecto visual de harpa
 
-  function drawEnemy(e, dt){
-    if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3); }
-    const anim = e._anim || (e._anim = makeAnimator(
-      e.sheet==='demonio' ? ANIMS.demonio : ANIMS.oneRow(SPRITES[e.sheet].cols), 
-      e.sheet==='demonio'?8:10
-    ));
-    const frame = anim.step(dt);
-    drawFrame(e.sheet, frame, e.x - cameraX, e.y, e.w, e.h);
-  }
+    const SHOOT_DURATION = 0.55;
 
-  // ===== Proyectiles / Items =====
-  const PROJ = {
-    piedra: { speed: 660, w: 8, h: 8, color: '#d1d5db', gravity:0, from:'player' },
-    flecha: { speed: 390, w: 12, h: 4, color: '#fcd34d', gravity:0, from:'enemy' },
-    fuego:  { speed: 300, w: 10, h:10, color: '#fb7185', gravity:520, from:'enemy' },
-    panal:  { speed: 420, w: 10, h:10, color: '#fbbf24', gravity:920, from:'player' } // parábola
-  };
-  function drawProjectile(p){ ctx.fillStyle=p.color; ctx.fillRect(((p.x-cameraX)|0), p.y|0, p.w, p.h); }
-  function drawItem(it){
-    const x=(it.x-cameraX)|0, y=it.y|0, w=it.w, h=it.h;
-    if(it.type==='bread'){ // pan
-      ctx.fillStyle='#f59e0b'; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle='#fde68a'; ctx.fillRect(x+2, y+2, w-4, h-4);
-    }else{ // hive
-      ctx.fillStyle='#f59e0b'; ctx.fillRect(x+2, y, w-4, h);
-      ctx.fillStyle='#d97706'; ctx.fillRect(x, y+3, w, h-6);
-    }
-  }
+    // ===== Utils =====
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const chance=p=>Math.random()<p;
+    const fmtTime=sec=>{const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;};
+    const getBest=()=>+localStorage.getItem('erd_best')||0;
+    const setBest=v=>localStorage.setItem('erd_best', String(Math.floor(v)));
+    function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
-  // ===== Spawning =====
-  function pickEnemyType(timeSec){
-    const t=timeSec, pool=[];
-    add('soldado',4); add('ladron',4); add('arquero',4); add('roca',2);
-    if (t>20){ add('bruto',3); add('leon',3); }
-    if (t>35){ add('oso',2); }
-    if (t>25){ add('demonio',3); }
-    function add(k,n){ for(let i=0;i<n;i++) pool.push(k); }
-    const key=pool[(Math.random()*pool.length)|0];
-    return ENEMY_TYPES.find(e=>e.key===key);
-  }
-  function spawnEnemy(timeSec){
-    if (enemies.length>maxEnemies) return;
-    const t=pickEnemyType(timeSec);
-    const e={ type:t.key, sheet:t.sheet, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller, x: cameraX + W + rnd(20,220), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: Math.random()*Math.PI*2 };
-    e.y = e.ground ? (groundY - e.h) : (120 + Math.random()*140);
-    enemies.push(e);
-    if (Math.random()<0.10){ const extra=1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1)}); }
-  }
-  function spawnItem(type){
-    const w= type==='bread'? 16: 14;
-    const h= type==='bread'? 12: 16;
-    items.push({ type, x: cameraX + W + rnd(40,120), y: groundY - h, w, h });
-  }
-
-  // ===== Reset =====
-  function resetGame(){
-    player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0 };
-    stones.length=0; enemies.length=0; enemyProjectiles.length=0; items.length=0; hives=0;
-    score=0; cameraX=0; paused=false; slingShow=0;
-    timeStart=performance.now(); elapsed=0;
-    spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
-    breadTimer=30; hiveTimer=38;
-    pWalkAnim.idx=0; pWalkAnim.acc=0; pSlingAnim.idx=0; pSlingAnim.acc=0;
-  }
-
-  // ===== Fondo =====
-  let ashParticles=[];
-  const THEMES = [
-    { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
-    { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
-    { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
-  ];
-  function currentTheme(){ const idx=Math.floor(elapsed/60)%THEMES.length; return THEMES[idx]; }
-  function drawBackground(dt){
-    const T=currentTheme();
-    const g=ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle=T.glow; ctx.fillRect(0,H-160,W,160);
-    drawRuins(T.ruin,0.16,220); drawRuins(T.ruin,0.24,180); drawRuins(T.ruin,0.32,140);
-    if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
-    ctx.fillStyle='rgba(248,250,252,.6)';
-    for(let i=ashParticles.length-1;i>=0;i--){
-      const p=ashParticles[i]; p.y+=p.a*8*dt; p.x-=p.a*12*dt;
-      ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1);
-      if (p.y>H || p.x<-60) ashParticles.splice(i,1);
-    }
-    drawGround(T);
-  }
-  function drawRuins(color,speed,height){
-    const offset=Math.floor((cameraX*speed))%W;
-    ctx.fillStyle=color;
-    for(let i=-1;i<3;i++){
-      const baseX=i*W - offset;
-      for(let b=0;b<5;b++){
-        const x=Math.floor(baseX + b*220);
-        const w=Math.floor(80 + (b%3)*10);
-        const h=height + (b%2? -20:20);
-        ctx.fillRect(x, groundY - h, w, h);
-        ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
+    // ===== Fondo =====
+    let ashParticles=[], clouds=[];
+    function ensureClouds(){
+      if (clouds.length<8){
+        clouds.push({ x:rnd(-W,W*2), y:rnd(30, H*0.35), w:rnd(80,200), h:rnd(20,40), s:rnd(6,14)/10 });
       }
     }
-  }
-  function drawGround(T){
-    ctx.fillStyle=T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
-    ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x,y,2,2);
-    for(let x=-((Math.floor(cameraX))%16); x<W; x+=16){
-      ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
-      ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
-      ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+    function drawBackground(dt){
+      const T=currentTheme(elapsed);
+      const g=ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+      // Nubes (parallax muy lento)
+      ensureClouds();
+      ctx.fillStyle='rgba(250,250,255,.18)';
+      for (let i=0;i<clouds.length;i++){
+        const c=clouds[i];
+        c.x -= c.s * dt * 30;
+        if (c.x + c.w < -60){ c.x = W + rnd(20,200); c.y = rnd(30, H*0.35); c.w=rnd(80,200); c.h=rnd(20,40); c.s=rnd(6,14)/10; }
+        const x = Math.floor(c.x - cameraX*0.08);
+        ctx.fillRect(x, Math.floor(c.y), Math.floor(c.w), Math.floor(c.h));
+        ctx.clearRect(x+8, Math.floor(c.y)+2, Math.floor(c.w)-16, 2);
+      }
+
+      // Glow de horizonte
+      ctx.fillStyle=T.glow; ctx.fillRect(0, H-160, W, 160);
+
+      // Ruinas lejanas + casas
+      drawRuins(T.ruin,0.16,220);
+      drawHouses(T.house,0.2,140);
+      drawRuins(T.ruin,0.28,160);
+      drawHouses(T.house,0.35,110);
+
+      // Ceniza
+      if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
+      ctx.fillStyle='rgba(248,250,252,.6)';
+      for(let i=ashParticles.length-1;i>=0;i--){ const p=ashParticles[i]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(i,1); }
+
+      // Suelo
+      drawGround(T);
     }
-  }
-
-  // ===== Física & Update =====
-  function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-
-  function update(dt){
-    if (paused) return;
-
-    // cámara
-    cameraX += (player.x - cameraX - 240) * 0.06;
-
-    // input movimiento
-    const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
-    if (keys['ArrowLeft']||keys['a']) player.vx=-accel;
-    if (keys['ArrowRight']||keys['d']) player.vx= accel;
-    if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])) player.vx*=player.onGround?FRICTION:1;
-    if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
-    player.duck=!!(keys['ArrowDown']||keys['s']);
-
-    // disparo piedra
-    player.canShoot-=dt; if (player.canShoot<0) player.canShoot=0;
-    if (keys[' '] && player.canShoot===0){
-      stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
-      player.canShoot=PLAYER.stoneCooldown;
-      slingShow = 0.25; // mostrar anim de honda
-    }
-
-    // lanzar panal
-    if (keys['f'] && hives>0 && !player._hiveLatch){
-      stones.push({ x: player.x + player.w, y: player.y + 10, w: PROJ.panal.w, h: PROJ.panal.h, vx: PROJ.panal.speed, vy: -220, color: PROJ.panal.color, from:'player', gravity: PROJ.panal.gravity, hive:true });
-      hives--; player._hiveLatch=true;
-    }
-    if (!keys['f']) player._hiveLatch=false;
-
-    // física player
-    player.vy += GRAVITY*dt;
-    player.x  += player.vx*dt; player.y += player.vy*dt;
-    const ph = player.duck ? player.h-10 : player.h;
-    if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
-    if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
-
-    // piedras / panal
-    for(let i=stones.length-1;i>=0;i--){
-      const s=stones[i];
-      s.vy += (s.gravity||0)*dt;
-      s.x+=s.vx*dt; s.y+=s.vy*dt;
-      // impacto del panal
-      if (s.hive && (s.y + s.h >= groundY)){
-        // Explosión: elimina al menos 6 más cercanos en radio
-        const cx = s.x, cy = groundY-6, R = 96;
-        // ordenar por distancia
-        const idxs = enemies.map((e,idx)=>[idx, Math.hypot((e.x+e.w/2)-cx, (e.y+e.h/2)-cy)]).sort((a,b)=>a[1]-b[1]);
-        let killed=0;
-        for(const [idx,dist] of idxs){
-          const e=enemies[idx]; if(!e) continue;
-          if (dist<=R){ e.hp=0; enemies[idx]=null; killed++; if (killed>=6) break; }
+    function drawRuins(color,speed,height){
+      const offset=Math.floor((cameraX*speed))%W; ctx.fillStyle=color;
+      for(let i=-1;i<3;i++){
+        const baseX=i*W - offset;
+        for(let b=0;b<5;b++){
+          const x=Math.floor(baseX + b*220);
+          const w=Math.floor(80 + (b%3)*10);
+          const h=height + (b%2? -20:20);
+          ctx.fillRect(x, groundY - h, w, h);
+          ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
         }
-        enemies = enemies.filter(Boolean);
-        stones.splice(i,1);
-        continue;
       }
-      if (s.x - cameraX > W+80) stones.splice(i,1);
+    }
+    function drawHouses(color, speed, baseH){
+      const offset = Math.floor((cameraX*speed))%W;
+      ctx.fillStyle = color;
+      for(let i=-1;i<3;i++){
+        const baseX = i*W - offset;
+        for(let k=0;k<6;k++){
+          const x = Math.floor(baseX + k*180 + (k%2)*40);
+          const w = 64 + (k%3)*16; const h = baseH + (k%2? -18:12);
+          // cuerpo
+          ctx.fillRect(x, groundY - h, w, h);
+          // techo
+          ctx.fillStyle = 'rgba(0,0,0,.35)';
+          ctx.fillRect(x-4, groundY - h - 10, w+8, 10);
+          ctx.fillStyle = color;
+          // ventanas
+          ctx.fillStyle = 'rgba(255,231,128,.28)'; ctx.fillRect(x+10, groundY - h + 16, 10, 8);
+          ctx.fillRect(x+w-22, groundY - h + 28, 10, 8);
+          ctx.fillStyle = color;
+        }
+      }
+    }
+    function drawGround(T){
+      ctx.fillStyle=T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
+      ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
+      for(let x=-((Math.floor(cameraX))%16); x<W; x+=16){
+        ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
     }
 
-    // spawn enemigos
-    spawnTimer -= dt;
-    if (spawnTimer<=0){
-      spawnEnemy(elapsed);
-      spawnInterval=Math.max(0.65, spawnInterval-0.0045);
-      spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15);
-      if (elapsed>90 && maxEnemies<24) maxEnemies=24;
+    // ===== Spawns =====
+    function pickEnemyType(t){ const pool=[]; p('soldado',4); p('ladron',4); p('arquero',4); p('roca',2); if(t>20){p('bruto',3);p('leon',3);} if(t>35){p('oso',2);} if(t>25){p('demonio',3);} function p(k,n){for(let i=0;i<n;i++)pool.push(k);} const key=pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
+    function spawnEnemy(timeSec){
+      if(enemies.length>maxEnemies) return;
+      const t=pickEnemyType(timeSec);
+      const e={ type:t.key, sheet:t.sheet, anim:t.anim, animT:0, fps:t.fps||8,
+        hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h,
+        ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
+        x: cameraX + W + rnd(20,220), y:0, vx:0, vy:0, shootCD:t.shootCooldown||0, projectile:t.projectile||null, tRef:t, phase:rnd(0,Math.PI*2)
+      };
+      e.y = e.ground ? (groundY - e.h) : rnd(120, Math.max(160, H*0.45));
+      enemies.push(e);
+      if (chance(0.12)){ const extra=1+((Math.random()*2)|0); for(let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1), animT:rnd(0,1)}); }
     }
 
-    // enemigos
-    for(let i=enemies.length-1;i>=0;i--){
-      const e=enemies[i];
-      if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
-      else if (e.roller){ e.vx=-e.speed; }
-      else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
+    // ===== Reset =====
+    function resetGame(){
+      player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false,
+               hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1,
+               hives:0, hiveCD:0, hasHarp:false };
+      stones.length=0; enemies.length=0; enemyProjectiles.length=0;
+      pickups.length=0; beeBombs.length=0; beeExplosions.length=0; harpPulse.length=0;
+      score=0; cameraX=0; paused=false;
+      timeStart=performance.now(); timeNow=timeStart; elapsed=0;
+      spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
+      breadTimer=30; hiveTimer=45; harpTimer=50;
+      updateHUDItems();
+    }
 
-      e.x+=e.vx*dt;
-      if (e.ground){
-        if (e.y + e.h < groundY) e.y+=GRAVITY*dt;
-        if (e.y + e.h > groundY) e.y=groundY - e.h;
+    // ===== Update =====
+    function update(dt){
+      if (paused) return;
+      cameraX += (player.x - cameraX - 240) * 0.06;
+
+      // Movimiento
+      const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
+      let moving=false;
+      if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; player.facing=-1; moving=true; }
+      if (keys['ArrowRight']||keys['d']){ player.vx= accel; player.facing= 1; moving=true; }
+      if (!moving) player.vx *= player.onGround?FRICTION:1;
+      if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
+      player.duck=!!(keys['ArrowDown']||keys['s']);
+
+      // Disparo (honda)
+      player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
+      if (keys[' '] && player.canShoot===0){
+        stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
+        player.canShoot=PLAYER.stoneCooldown; player.anim='shoot'; player.animT=0;
       }
 
-      if (e.projectile){
-        e.shootCD -= dt;
-        if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
-          if (e.projectile==='flecha'){
-            enemyProjectiles.push({ x:e.x, y:e.y+8, w:PROJ.flecha.w, h:PROJ.flecha.h, vx:-PROJ.flecha.speed, vy:0, color:PROJ.flecha.color, from:'enemy' });
-            e.shootCD=(e.tRef?.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-          } else if (e.projectile==='fuego'){
-            enemyProjectiles.push({ x:e.x, y:e.y+10, w:PROJ.fuego.w, h:PROJ.fuego.h, vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
-            e.shootCD=(e.tRef?.shootCooldown||1.5) + (Math.random()*0.5);
+      // Lanzar panal (granada)
+      player.hiveCD -= dt; if (player.hiveCD<0) player.hiveCD=0;
+      if ((keys['g']||keys['G']) && player.hives>0 && player.hiveCD===0){
+        const dir = player.facing>=0 ? 1 : -1;
+        beeBombs.push({ x:player.x+player.w*0.5, y:player.y+8, w:12, h:12, vx:320*dir, vy:-520, gravity:1000 });
+        player.hives--; updateHUDItems();
+        player.hiveCD=0.5;
+      }
+
+      // Usar harpa
+      if ((keys['h']||keys['H']) && player.hasHarp){
+        useHarp();
+      }
+
+      // Anim player
+      if (player.anim==='shoot'){ if (player.animT>=SHOOT_DURATION) player.anim = (Math.abs(player.vx)>1?'walk':'idle'); }
+      else { player.anim = moving ? 'walk' : 'idle'; }
+      player.animT += dt;
+
+      // Físicas player
+      player.vy += GRAVITY*dt; player.x += player.vx*dt; player.y += player.vy*dt;
+      const ph=player.duck?player.h-10:player.h;
+      if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
+      if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
+
+      // Piedras
+      for(let i=stones.length-1;i>=0;i--){ const s=stones[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
+
+      // Spawns de enemigos
+      spawnTimer -= dt;
+      if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
+
+      // Spawns de pickups
+      breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 30 + rnd(-5,5); }
+      hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 45 + rnd(-7,7); }
+      harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 50 + rnd(-7,7); }
+
+      // Enemigos
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
+        else if (e.roller){ e.vx=-e.speed; }
+        else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
+        e.x+=e.vx*dt;
+        if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
+
+        // Disparo enemigo
+        if (e.projectile && (e.shootCD!==undefined)){
+          e.shootCD -= dt;
+          if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
+            if (e.projectile==='flecha')
+              enemyProjectiles.push({ x:e.x, y:e.y+8,  w:PROJ.flecha.w, h:PROJ.flecha.h, vx:-PROJ.flecha.speed, vy:0, color:PROJ.flecha.color, from:'enemy' });
+            else if (e.projectile==='fuego')
+              enemyProjectiles.push({ x:e.x, y:e.y+10, w:PROJ.fuego.w,  h:PROJ.fuego.h,  vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
+            e.shootCD=(e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
+            if (e.sheet==='demonio'){ e.anim='fire'; e.animT=0; }
           }
         }
+        e.animT += dt;
+        if (e.x + e.w < cameraX - 40){ enemies.splice(i,1); continue; }
       }
-      if (e.x + e.w < cameraX - 40){ enemies.splice(i,1); continue; }
+
+      // Proyectiles enemigos
+      for(let i=enemyProjectiles.length-1;i>=0;i--){
+        const p=enemyProjectiles[i];
+        p.vy += (p.gravity||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(i,1); continue; }
+        if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
+      }
+
+      // Colisiones piedra vs enemigo
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        for(let j=stones.length-1;j>=0;j--){
+          const s=stones[j];
+          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
+        }
+      }
+
+      // Panales arrojados
+      for(let i=beeBombs.length-1;i>=0;i--){
+        const b=beeBombs[i];
+        b.vy += b.gravity*dt; b.x += b.vx*dt; b.y += b.vy*dt;
+        if (b.y + b.h >= groundY){ // detona
+          detonateHive(b.x, groundY-10);
+          beeBombs.splice(i,1);
+        }else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(i,1); }
+      }
+      // Enjambres (efecto visual)
+      for(let i=beeExplosions.length-1;i>=0;i--){
+        const ex=beeExplosions[i]; ex.t+=dt; if (ex.t>ex.dur) beeExplosions.splice(i,1);
+      }
+
+      // Harpa efecto
+      for (let i=harpPulse.length-1;i>=0;i--){
+        const hp=harpPulse[i]; hp.t += dt; if (hp.t>hp.dur) harpPulse.splice(i,1);
+      }
+
+      // Pickups
+      for(let i=pickups.length-1;i>=0;i--){
+        const it=pickups[i];
+        if (rectsOverlap(player,{x:it.x,y:it.y,w:it.w,h:it.h})){
+          if (it.type==='bread'){
+            const before = player.hearts;
+            player.hearts = clamp(player.hearts+1, 0, PLAYER.maxHearts);
+            if (player.hearts>before) updateHearts();
+          } else if (it.type==='hive'){
+            player.hives++; updateHUDItems();
+          } else if (it.type==='harp'){
+            player.hasHarp = true; updateHUDItems();
+          }
+          pickups.splice(i,1);
+        }
+        if (it.x + it.w < cameraX - 60) pickups.splice(i,1);
+      }
+
+      // Daño al jugador
+      if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
+      const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h: player.duck?player.h-10:player.h };
+      for(let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
+      for(let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
+
+      // Tiempo / HUD
+      timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
+      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
+      hudScore.textContent = `Puntos: ${score}`;
     }
 
-    // proyectiles enemigos
-    for(let i=enemyProjectiles.length-1;i>=0;i--){
-      const p=enemyProjectiles[i];
-      p.vy += (p.gravity||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
-      if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(i,1); continue; }
-      if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
+    // ===== Pickups helpers =====
+    function spawnPickup(type){
+      const w = (type==='bread') ? 16 : (type==='hive'? 18 : 16);
+      const h = (type==='bread') ? 12 : (type==='hive'? 16 : 16);
+      const px = cameraX + W + rnd(60, 220);
+      pickups.push({ type, x:px, y: groundY - h, w, h });
     }
 
-    // colisiones piedra vs enemigo
-    for(let i=enemies.length-1;i>=0;i--){
-      const e=enemies[i];
-      for(let j=stones.length-1;j>=0;j--){
-        const s=stones[j]; if (s.hive) continue; // el panal explota al suelo
-        if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
+    function drawPickup(it){
+      const x=(it.x - cameraX)|0, y=it.y|0;
+      if (it.type==='bread'){
+        // Pan
+        ctx.fillStyle='#f8b26a'; ctx.fillRect(x, y+2, it.w, it.h-4);
+        ctx.fillStyle='#d97706'; ctx.fillRect(x, y, 3, it.h-2); ctx.fillRect(x+it.w-3, y, 3, it.h-2);
+      } else if (it.type==='hive'){
+        // Panal
+        ctx.fillStyle='#facc15'; ctx.fillRect(x+3, y+1, it.w-6, it.h-2);
+        ctx.fillRect(x+1, y+3, it.w-2, it.h-6);
+        ctx.fillRect(x+3, y+it.h-3, it.w-6, 2);
+        ctx.fillStyle='#92400e'; ctx.fillRect(x+Math.floor(it.w/2)-2, y+Math.floor(it.h/2)-2, 4, 4);
+      } else {
+        // Harpa (lira simple)
+        ctx.fillStyle='#eab308'; ctx.fillRect(x+3, y, it.w-6, it.h);
+        ctx.clearRect(x+5, y+2, it.w-10, it.h-4);
+        ctx.fillStyle='#fde68a'; for(let s=0;s<3;s++){ ctx.fillRect(x+6+s*3, y+2, 1, it.h-4); }
+        ctx.fillStyle='#b45309'; ctx.fillRect(x+2, y+it.h-2, it.w-4, 2);
       }
     }
 
-    // daño al jugador
-    if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
-    const pHit = { x: player.x, y: player.y + (player.duck?10:0), w: player.w, h: player.duck?player.h-10:player.h };
-    for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
-    for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
+    function detonateHive(cx, cy){
+      beeExplosions.push({ x:cx, y:cy, t:0, dur:0.6 });
+      // mata al menos 6 enemigos cercanos si existen
+      const withDist = enemies.map((e,idx)=>({idx, e, d: Math.hypot((e.x+e.w*0.5)-cx, (e.y+e.h*0.5)-cy)}));
+      withDist.sort((a,b)=>a.d-b.d);
+      const victims=[];
+      for (let k=0;k<withDist.length;k++){
+        if (withDist[k].d <= 140) victims.push(withDist[k].idx);
+        if (victims.length>=6) break;
+      }
+      if (victims.length<6){
+        for (let k=0;k<withDist.length;k++){
+          if (!victims.includes(withDist[k].idx) && withDist[k].d <= 200) victims.push(withDist[k].idx);
+          if (victims.length>=6) break;
+        }
+      }
+      victims.sort((a,b)=>b-a).forEach(i=>{
+        if (enemies[i]) { score += enemies[i].score; enemies.splice(i,1); }
+      });
+    }
 
-    // spawns de items
-    breadTimer -= dt; if (breadTimer<=0){ spawnItem('bread'); breadTimer = 30; }
-    hiveTimer  -= dt; if (hiveTimer<=0){ if (chance(0.7)) spawnItem('hive'); hiveTimer = 36 + Math.random()*10; }
+    function useHarp(){
+      // pulso visual y purga demonios
+      harpPulse.push({ t:0, dur:0.7 });
+      let removed=0;
+      for (let i=enemies.length-1;i>=0;i--){
+        if (enemies[i].type==='demonio'){ score += enemies[i].score; enemies.splice(i,1); removed++; }
+      }
+      player.hasHarp = false;
+      updateHUDItems();
+    }
 
-    // recoger items
-    for(let i=items.length-1;i>=0;i--){
-      const it=items[i];
-      if (rectsOverlap(pHit, it)){
-        if (it.type==='bread'){ if (player.hearts<PLAYER.maxHearts) player.hearts++; }
-        else if (it.type==='hive'){ hives++; }
-        items.splice(i,1);
+    // ===== Daño / HUD =====
+    function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); updateHearts(); }
+    function updateHearts(){ const hearts='❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent=`Vida: ${hearts}`; }
+    function updateHUDItems(){ hudItems.textContent = `Panales: ${player?.hives ?? 0} · Harpa: ${player?.hasHarp ? 'Lista' : '—'}`; }
+
+    // ===== Render =====
+    function drawPlayer(){
+      const px=(player.x - cameraX)|0, py=player.y|0;
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
+      if (SPRITES_READY){
+        const idx = animIndex('david', player.anim, player.animT, player.anim==='shoot'?10:9);
+        drawTrimmed('david', idx, px, py, player.w, player.h, 1, 0);
+      } else {
+        ctx.fillStyle='#9ca3af'; ctx.fillRect(px, py, player.w, player.h);
+      }
+    }
+    function drawEnemy(e){
+      if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3); }
+      if (SPRITES_READY){
+        let anim=e.anim; if (e.sheet==='demonio' && anim==='fire' && e.animT>0.3) anim='fly';
+        const idx=animIndex(e.sheet, anim, e.animT, e.fps||8);
+        drawTrimmed(e.sheet, idx, (e.x - cameraX)|0, e.y|0, e.w, e.h, 1, 0);
+      } else {
+        ctx.fillStyle='#e879f9'; ctx.fillRect((e.x - cameraX)|0, e.y|0, e.w, e.h);
+      }
+    }
+    function render(dt){
+      drawBackground(dt);
+
+      // pickups
+      pickups.forEach(drawPickup);
+
+      // piedras
+      stones.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
+
+      // enemigos y proyectiles
+      enemies.forEach(drawEnemy);
+      enemyProjectiles.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
+
+      // panales arrojados
+      beeBombs.forEach(b=>{
+        const x=(b.x - cameraX)|0, y=b.y|0;
+        ctx.fillStyle='#facc15'; ctx.fillRect(x, y, b.w, b.h);
+        ctx.fillStyle='#78350f'; ctx.fillRect(x+4, y+4, 4, 4);
+      });
+      // efecto de enjambre
+      beeExplosions.forEach(ex=>{
+        const prog = ex.t/ex.dur;
+        const R = 40 + 80*prog;
+        for(let i=0;i<14;i++){
+          const ang = (i/14)*Math.PI*2 + prog*6;
+          const px = (ex.x - cameraX) + Math.cos(ang)*R;
+          const py = ex.y - Math.sin(ang)*R*0.6;
+          ctx.fillStyle = (i%2)? 'rgba(250,204,21,0.85)' : 'rgba(234,179,8,0.85)';
+          ctx.fillRect(px|0, py|0, 3, 3);
+        }
+      });
+
+      // efecto harpa (ondas desde el jugador)
+      harpPulse.forEach(hp=>{
+        const k = hp.t/hp.dur;
+        const R = 40 + 340*k;
+        ctx.strokeStyle = `rgba(234,179,8,${1-k})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc((player.x - cameraX)|0, (player.y+10)|0, R, 0, Math.PI*2);
+        ctx.stroke();
+      });
+
+      drawPlayer();
+
+      if (!SPRITES_READY){
+        ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(8,8,230,48);
+        ctx.fillStyle='#fde68a'; ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+        ctx.fillText('Cargando sprites…',16,26);
+        ctx.fillText('Usando fallback visual',16,44);
       }
     }
 
-    // tiempo y HUD
-    elapsed = (performance.now() - timeStart)/1000;
-    hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
-    hudScore.textContent = `Puntos: ${score}`;
-    hudHealth.textContent = `Vida: ${'❤'.repeat(player.hearts)}${'♡'.repeat(PLAYER.maxHearts-player.hearts)}  ·  Panales: ${hives}`;
-  }
+    // ===== Loop =====
+    let last=0; function loop(ts){ const now=ts||performance.now(); const dt=Math.min(0.033,(now-last)/1000)||0.016; last=now; if (state==='play'){ update(dt); render(dt); } requestAnimationFrame(loop); }
 
-  function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); }
-
-  // ===== Render =====
-  function render(dt){
-    drawBackground(dt);
-    items.forEach(drawItem);
-    stones.forEach(drawProjectile);
-    enemies.forEach(e=>drawEnemy(e, dt));
-    enemyProjectiles.forEach(drawProjectile);
-    drawPlayer(player, dt);
-
-    // banner de carga de sprites
-    if (!assetsReady){
-      ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(8,8,360,44);
-      ctx.fillStyle='#fde68a'; ctx.font='12px monospace';
-      ctx.fillText(`Cargando sprites...`, 16, 34);
+    // ===== Audio helpers =====
+    function playSafe(audio, vol=0.5, reset=false){
+      try{
+        if (reset) audio.currentTime = 0;
+        audio.volume = vol;
+        const p = audio.play();
+        if (p && p.catch) p.catch(()=>{});
+      }catch(_){}
     }
-  }
+    function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
 
-  // ===== Loop =====
-  let last=0;
-  function loop(ts){
-    const now = ts || performance.now();
-    const dt = Math.min(0.033, (now-last)/1000) || 0.016;
-    last=now;
-    if (state==='play'){ update(dt); render(dt); }
-    requestAnimationFrame(loop);
-  }
-
-  // ===== Game Flow & Audio =====
-  function startGame(){
-    state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
-    resetGame();
-    // música
-    try { bgmLobby.pause(); } catch(e){}
-    try { bgmGame.currentTime = 0; bgmGame.volume = 0.45; bgmGame.play().catch(()=>{}); } catch(e){}
-    try { bgmLose.pause(); bgmLose.currentTime = 0; } catch(e){}
-    window.focus();
-  }
-
-  function gameOver(){
-    state='gameover';
-    const best=getBest(); if (elapsed>best) setBest(elapsed);
-    timeSurvivedEl.textContent=fmtTime(elapsed);
-    bestTimeEl.textContent=fmtTime(getBest());
-    gameOverOverlay.classList.remove('hidden');
-
-    try{ bgmGame.pause(); }catch(e){}
-    try{ bgmLose.currentTime=0; bgmLose.volume=0.6; bgmLose.play().catch(()=>{}); }catch(e){}
-  }
-
-  // ===== Input =====
-  window.addEventListener('keydown', (e)=>{
-    if (e.code==='Space') e.preventDefault();
-    keys[e.key]=true;
-    if ((e.key==='p'||e.key==='P') && state==='play'){
-      paused=!paused;
-      try{ if (paused) bgmGame.pause(); else bgmGame.play().catch(()=>{}); }catch(e){}
+    // ===== Fullscreen helper =====
+    async function goFullscreen() {
+      const el = stageEl;
+      try {
+        if (document.fullscreenElement) return;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+      } catch (_) {}
     }
-    if (e.key==='i'||e.key==='I') controlsPanel.classList.toggle('hidden');
-  });
-  window.addEventListener('keyup', (e)=>{ keys[e.key]=false; });
+    document.addEventListener('fullscreenchange', resizeCanvas);
 
-  btnStart.addEventListener('click', startGame);
-  btnRestart.addEventListener('click', startGame);
+    // ===== Flujo =====
+    function startGame(){
+      state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
+      resetGame(); updateHearts();
+      stopSafe(bgmLobby);
+      playSafe(bgmGame, 0.45, true);
+      stopSafe(bgmLose); try{ bgmLose.currentTime=0; }catch(_){}
+      goFullscreen(); // intentar fullscreen al iniciar
+      window.focus();
+    }
+    function gameOver(){
+      state='gameover';
+      const best=getBest(); if (elapsed>best) setBest(elapsed);
+      timeSurvivedEl.textContent=fmtTime(elapsed); bestTimeEl.textContent=fmtTime(getBest());
+      gameOverOverlay.classList.remove('hidden');
+      stopSafe(bgmGame);
+      playSafe(bgmLose, 0.6, true);
+    }
 
-  // Best time
-  bestStart.textContent = fmtTime(getBest());
+    // ===== Input =====
+    window.addEventListener('keydown', (e)=>{
+      if (e.code==='Space') e.preventDefault();
+      keys[e.key]=true;
+      if ((e.key==='p'||e.key==='P') && state==='play'){
+        paused=!paused;
+        if (paused) stopSafe(bgmGame); else playSafe(bgmGame, 0.45, false);
+      }
+      if (e.key==='i'||e.key==='I') controlsPanel.classList.toggle('hidden');
+    });
+    window.addEventListener('keyup', e=>{ keys[e.key]=false; });
 
-  // Lobby BGM: arranca tras cualquier gesto
-  let triedLobby=false;
-  function ensureLobbyPlay(){
-    if (state!=='start' || triedLobby) return;
-    triedLobby=true;
-    try{
-      bgmLobby.volume=0.55; bgmLobby.currentTime=0;
-      const p=bgmLobby.play();
-      if (p&&p.catch) p.catch(()=>{ triedLobby=false; });
-    }catch(e){ triedLobby=false; }
-  }
-  ['pointerdown','keydown','touchstart','pointermove','pointerenter'].forEach(ev=>{
-    window.addEventListener(ev, ensureLobbyPlay, { passive:true });
-  });
-  btnStart.addEventListener('pointerenter', ensureLobbyPlay);
+    btnStart.addEventListener('click', startGame);
+    btnRestart.addEventListener('click', startGame);
 
-  // Iniciar loop
-  requestAnimationFrame(ts=>{ last=ts; loop(ts); });
-})();
-</script>
+    // Record
+    bestStart.textContent = fmtTime(getBest());
+
+    // Música lobby con gesto
+    let triedLobby=false;
+    function ensureLobbyPlay(){
+      if (state!=='start'||triedLobby) return;
+      triedLobby=true; playSafe(bgmLobby, 0.55, true);
+    }
+    ['pointerdown','keydown','touchstart','pointermove','click'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
+    btnStart.addEventListener('pointerenter', ensureLobbyPlay);
+
+    // Boot
+    requestAnimationFrame(ts=>{ last=ts; loop(ts); });
+  })();
+  </script>
 </body>
 </html>
