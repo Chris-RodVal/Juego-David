@@ -96,7 +96,7 @@
 
   <script>
   (() => {
-    // ===== Canvas / UI / Audio =====
+    // ===== Canvas / UI =====
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d', { alpha:true });
     ctx.imageSmoothingEnabled = false;
@@ -124,7 +124,7 @@
     const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
     const groundY = H - 78;
 
-    // ===== Temas de fondo =====
+    // ===== Temas =====
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
       { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
@@ -132,12 +132,13 @@
     ];
     const currentTheme = (t)=>THEMES[Math.floor(t/60)%THEMES.length];
 
-    // ===== PNGs (según tus hojas) =====
+    // ===== PNGs =====
     const SOURCES = {
       david:"David.png", soldado:"Soldado_basico.png", arquero:"Arquero.png",
       bruto:"Bruto.png", ladron:"Ladron.png", leon:"Leon.png",
       oso:"Oso.png", demonio:"Demonio.png", roca:"Roca.png"
     };
+    // Grids según tus hojas (conservadores)
     const GRID = {
       david:{cols:5,rows:2}, soldado:{cols:4,rows:1}, arquero:{cols:6,rows:1},
       bruto:{cols:6,rows:1}, ladron:{cols:6,rows:1}, leon:{cols:5,rows:1},
@@ -155,27 +156,64 @@
       demonio:{fly:[0,1], fire:[2,3], idle:[0]}
     };
 
-    // ===== Carga con recorte/anclaje =====
-    const Sheets={}; let SPRITES_READY=false; const ALPHA_THRESHOLD=24;
+    // ===== Carga + recorte robusto (anti-sangrado) =====
+    const Sheets={}; let SPRITES_READY=false;
+    const ALPHA_THRESHOLD=160;       // más alto para ignorar artefactos
+    const SCAN_MARGIN_X=2, SCAN_MARGIN_Y=1; // no mirar los bordes de la celda
+
     function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+
     function buildGridWithTrim(key,img){
-      const {cols,rows}=GRID[key]; const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
+      const {cols,rows}=GRID[key];
+      const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
       const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
       const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.drawImage(img,0,0);
       const data=tg.getImageData(0,0,tmp.width,tmp.height).data;
-      function cell(c,r){
-        const sx0=c*fw, sy0=r*fh; let minX=fw,minY=fh,maxX=-1,maxY=-1;
-        for(let y=0;y<fh;y++){ const gy=sy0+y; for(let x=0;x<fw;x++){ const gx=sx0+x; const a=data[(gy*tmp.width+gx)*4+3]; if(a>ALPHA_THRESHOLD){ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; } } }
-        if(maxX<0||maxY<0) return {sx:sx0,sy:sy0,sw:fw,sh:fh,footLocal:fh-1,empty:true};
-        const sw=maxX-minX+1, sh=maxY-minY+1, footLocal=(maxY-minY);
-        return {sx:sx0+minX,sy:sy0+minY,sw,sh,footLocal,empty:false};
-      }
-      const frames=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cell(c,r));
-      Sheets[key]={img,fw,fh,cols,rows,total:frames.length,frames};
-    }
-    (async()=>{ try{ for(const [k,src] of Object.entries(SOURCES)){ const im=await loadImage(src); buildGridWithTrim(k,im); } SPRITES_READY=true; }catch(e){ console.error('Error cargando sprites:',e); SPRITES_READY=false; } })();
 
-    // Dibujo anclado
+      function cell(c,r){
+        const sx0=c*fw, sy0=r*fh;
+        let minX=fw, minY=fh, maxX=-1, maxY=-1;
+        const xStart = sx0 + SCAN_MARGIN_X, xEnd = sx0 + fw - SCAN_MARGIN_X;
+        const yStart = sy0 + SCAN_MARGIN_Y, yEnd = sy0 + fh - SCAN_MARGIN_Y;
+
+        for(let y=yStart;y<yEnd;y++){
+          for(let x=xStart;x<xEnd;x++){
+            const a=data[(y*tmp.width + x)*4 + 3];
+            if(a>ALPHA_THRESHOLD){
+              if(x - sx0 < minX) minX = x - sx0;
+              if(y - sy0 < minY) minY = y - sy0;
+              if(x - sx0 > maxX) maxX = x - sx0;
+              if(y - sy0 > maxY) maxY = y - sy0;
+            }
+          }
+        }
+        if(maxX<0||maxY<0){
+          return { sx:sx0, sy:sy0, sw:fw, sh:fh, footLocal:fh-1, empty:true };
+        }
+        const sw=maxX-minX+1, sh=maxY-minY+1;
+        // pie relativo dentro del recorte (última fila pintada)
+        const footLocal = sh - 1;
+        return { sx:sx0+minX, sy:sy0+minY, sw, sh, footLocal, empty:false };
+      }
+
+      const frames=[];
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cell(c,r));
+      Sheets[key]={ img, fw, fh, cols, rows, total:frames.length, frames };
+    }
+
+    (async()=>{
+      try{
+        for(const [k,src] of Object.entries(SOURCES)){
+          const im=await loadImage(src);
+          buildGridWithTrim(k, im);
+        }
+        SPRITES_READY=true;
+      }catch(e){
+        console.error('Error cargando sprites:', e);
+      }
+    })();
+
+    // Dibujo anclado al pie del box (y+h)
     const SPRITE_SCALE=0.64;
     function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
       const S=Sheets[sheetKey]; if(!S) return;
@@ -183,10 +221,17 @@
       const base=Math.min(w/f.sw, h/f.sh)*SPRITE_SCALE*(scaleMul||1);
       const scale=Math.max(0.25, Math.round(base*4)/4);
       const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
-      const destBottom=Math.round(y + h + (yNudge||0));
-      const destTop=Math.round(destBottom - (f.footLocal+1)*scale);
-      const dx=Math.round(x + (w - dw)*0.5);
-      ctx.drawImage(S.img, f.sx,f.sy,f.sw,f.sh, dx,destTop, dw,dh);
+      // anclar la última fila con alfa al fondo del área (footLocal es sh-1 del recorte)
+      const destBottom = Math.round(y + h + (yNudge||0));
+      const destTop    = Math.round(destBottom - (f.footLocal+1)*scale);
+      const dx = Math.round(x + (w - dw)*0.5);
+      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, destTop, dw, dh);
+    }
+
+    // ===== Anim =====
+    function animIndex(sheet, anim, t, fps){
+      const seq=ANIMS[sheet]?.[anim] || ANIMS[sheet]?.idle || [0];
+      return seq[Math.floor(t*fps)%seq.length] || 0;
     }
 
     // ===== Entidades / Proyectiles =====
@@ -247,9 +292,6 @@
       }
     }
 
-    // ===== Anim =====
-    function animIndex(sheet, anim, t, fps){ const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0]; return seq[Math.floor(t*fps)%seq.length]||0; }
-
     // ===== Spawns =====
     function pickEnemyType(t){ const pool=[]; push('soldado',4); push('ladron',4); push('arquero',4); push('roca',2); if(t>20){push('bruto',3);push('leon',3);} if(t>35){push('oso',2);} if(t>25){push('demonio',3);} function push(k,n){for(let i=0;i<n;i++)pool.push(k);} const key=pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
     function spawnEnemy(timeSec){
@@ -265,21 +307,24 @@
       if (chance(0.12)){ const extra=1+((Math.random()*2)|0); for(let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1), animT:rnd(0,1)}); }
     }
 
-    // ===== Físicas =====
+    // ===== Físicas / Update =====
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
     function resetGame(){
-      player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false, hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1 };
+      player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false,
+               hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1 };
       stones.length=0; enemies.length=0; enemyProjectiles.length=0;
       score=0; cameraX=0; paused=false;
       timeStart=performance.now(); timeNow=timeStart; elapsed=0;
       spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
     }
 
+    const SHOOT_DURATION = 0.55; // mantener la pose de honda visible
+
     function update(dt){
       if (paused) return;
       cameraX += (player.x - cameraX - 240) * 0.06;
 
-      // Player
+      // Movimiento
       const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
       let moving=false;
       if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; player.facing=-1; moving=true; }
@@ -287,15 +332,24 @@
       if (!moving) player.vx *= player.onGround?FRICTION:1;
       if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
       player.duck=!!(keys['ArrowDown']||keys['s']);
-      player.anim = moving ? 'walk' : (player.anim==='shoot' && player.animT<0.35 ? 'shoot' : 'idle');
 
+      // Disparo
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
+        // dispara y muestra anim de honda
         stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
         player.canShoot=PLAYER.stoneCooldown; player.anim='shoot'; player.animT=0;
       }
 
+      // Selección anim
+      if (player.anim==='shoot'){
+        if (player.animT>=SHOOT_DURATION) player.anim = (Math.abs(player.vx)>1?'walk':'idle');
+      } else {
+        player.anim = moving ? 'walk' : 'idle';
+      }
       player.animT += dt;
+
+      // Físicas
       player.vy += GRAVITY*dt; player.x += player.vx*dt; player.y += player.vy*dt;
       const ph=player.duck?player.h-10:player.h;
       if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
@@ -317,7 +371,7 @@
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
 
-        // Disparo
+        // Disparo enemigo
         if (e.projectile && (e.shootCD!==undefined)){
           e.shootCD -= dt;
           if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
@@ -341,7 +395,7 @@
         if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
       }
 
-      // Colisiones
+      // Colisiones (piedra vs enemigo)
       for(let i=enemies.length-1;i>=0;i--){
         const e=enemies[i];
         for(let j=stones.length-1;j>=0;j--){
@@ -349,6 +403,8 @@
           if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
         }
       }
+
+      // Daño al jugador
       if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
       const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h: player.duck?player.h-10:player.h };
       for(let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
@@ -364,15 +420,13 @@
 
     // ===== Render =====
     function drawPlayer(){
-      // sombra
       const px=(player.x - cameraX)|0, py=player.y|0;
       ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
-      if (SPRITES_READY) {
-        let anim = player.anim; if (anim==='shoot' && player.animT>0.35) anim = (Math.abs(player.vx)>1?'walk':'idle');
-        const idx = animIndex('david', anim, player.animT, player.fps);
+      if (SPRITES_READY){
+        let anim = player.anim;
+        const idx = animIndex('david', anim, player.animT, anim==='shoot'?10:9);
         drawTrimmed('david', idx, px, py, player.w, player.h, 1, 0);
       } else {
-        // Fallback visible
         ctx.fillStyle='#9ca3af'; ctx.fillRect(px, py, player.w, player.h);
       }
     }
@@ -395,10 +449,10 @@
 
       // Debug de carga
       if (!SPRITES_READY){
-        ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(8,8,220,44);
+        ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(8,8,230,48);
         ctx.fillStyle='#fde68a'; ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-        ctx.fillText('Cargando sprites…',16,24);
-        ctx.fillText('Usando fallback visual',16,40);
+        ctx.fillText('Cargando sprites…',16,26);
+        ctx.fillText('Usando fallback visual',16,44);
       }
     }
 
@@ -411,7 +465,7 @@
         if (reset) audio.currentTime = 0;
         audio.volume = vol;
         const p = audio.play();
-        if (p && p.catch) p.catch(()=>{ /* silenciar error autoplay */ });
+        if (p && p.catch) p.catch(()=>{});
       }catch(_){}
     }
     function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
@@ -446,14 +500,13 @@
     });
     window.addEventListener('keyup', e=>{ keys[e.key]=false; });
 
-    // Start / Restart
-    btnStart.addEventListener('click', ()=>{ startGame(); });
-    btnRestart.addEventListener('click', ()=>{ startGame(); });
+    btnStart.addEventListener('click', startGame);
+    btnRestart.addEventListener('click', startGame);
 
-    // Best time
+    // Record
     bestStart.textContent = fmtTime(getBest());
 
-    // Arranque música de lobby en cualquier gesto válido
+    // Música lobby en cualquier gesto válido
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
@@ -462,7 +515,7 @@
     ['pointerdown','keydown','touchstart','pointermove','click'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
-    // Boot loop
+    // Boot
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
   })();
   </script>
