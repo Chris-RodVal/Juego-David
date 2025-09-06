@@ -21,7 +21,6 @@
       background: #12070b; display: block;
     }
 
-    /* HUD fijo arriba */
     .hud {
       position: fixed; left: 50%; top: 8px; transform: translateX(-50%);
       width: min(1200px, 96vw); display: flex; flex-wrap: wrap;
@@ -30,7 +29,6 @@
     }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
 
-    /* Overlays centrados sobre el canvas */
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 6; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw;
       background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96));
@@ -47,7 +45,7 @@
     .hidden { display: none; }
 
     .controls-panel {
-      position: fixed; left: 10px; bottom: 10px; width: 300px;
+      position: fixed; left: 10px; bottom: 10px; width: 320px;
       background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px;
       padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; z-index: 7;
     }
@@ -73,16 +71,14 @@
       <div id="controlsPanel" class="controls-panel">
         <h3>Controles</h3>
         <ul>
-          <li>← / → : Mover</li>
-          <li>↑ : Saltar</li>
-          <li>↓ : Agacharse</li>
+          <li>← / → : Mover · ↑ : Saltar · ↓ : Agacharse</li>
           <li>ESPACIO : Lanzar piedra (honda)</li>
           <li>G : Lanzar panal (granada de abejas)</li>
+          <li><b>E : Comer pan</b> (+1 corazón)</li>
           <li>H : Tocar <b>harpa</b> (purga demonios)</li>
-          <li>P : Pausar</li>
-          <li>I : Mostrar/Ocultar ayuda</li>
+          <li>P : Pausar · I : Mostrar/Ocultar ayuda</li>
         </ul>
-        <div class="hint">Novedad: <b>PAN</b> cura · <b>PANALES</b> granadas · <b>HARPA</b> expulsa demonios.</div>
+        <div class="hint">Pan se guarda en inventario. Come con <b>E</b>.</div>
       </div>
 
       <div id="startOverlay" class="overlay">
@@ -91,7 +87,7 @@
           <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
           <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
           <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
-          <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, <b>G</b> panal, <b>H</b> harpa, P, I</div>
+          <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, <b>G</b>, <b>E</b>, <b>H</b>, P, I</div>
           <div class="muted" style="margin-top:6px">Se intentará abrir en <b>pantalla completa</b> al iniciar.</div>
         </div>
       </div>
@@ -109,8 +105,8 @@
       <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤❤</div>
       <div class="tag" id="hudTime">Tiempo: 00:00</div>
       <div class="tag" id="hudScore">Puntos: 0</div>
-      <div class="tag" id="hudItems">Panales: 0 · Harpa: —</div>
-      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · G: panal · H: harpa · I: ayuda</div>
+      <div class="tag" id="hudItems">Pan: 0 · Panales: 0 · Harpa: —</div>
+      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · G: panal · <b>E: comer pan</b> · H: harpa · I: ayuda</div>
     </div>
   </div>
 
@@ -150,16 +146,18 @@
       canvas.style.height = cssH + 'px';
       canvas.width  = cssW * DPR;
       canvas.height = cssH * DPR;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // 1 unidad lógica = 1 px CSS
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.imageSmoothingEnabled = false;
       W = cssW; H = cssH;
-      groundY = H - 78; // piso relativo
+      groundY = H - 78;
     }
     window.addEventListener('resize', resizeCanvas, { passive:true });
     resizeCanvas();
 
     const GRAVITY = 2400, FRICTION = 0.85;
-    const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
+    // AUMENTO CADENCIA HONDA -> stoneCooldown: 0.18
+    const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.18 };
+
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#402b2b' },
       { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3f3321' },
@@ -238,7 +236,6 @@
       const destBottom=Math.round(y+h+(yNudge||0));
       const destTop=Math.round(destBottom - (f.footLocal+1)*scale);
       const dx=Math.round(x+(w-dw)*0.5);
-      // Coordenadas 100% enteras (evita “doble” horizontal)
       ctx.drawImage(S.img,f.sx|0,f.sy|0,f.sw|0,f.sh|0,dx|0,destTop|0,dw|0,dh|0);
     }
     function animIndex(sheet, anim, t, fps){
@@ -268,7 +265,7 @@
     let timeStart=0, timeNow=0, elapsed=0, score=0, paused=false;
     let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
 
-    // Pickups y panales/harpa
+    // Pickups e inventario
     let pickups=[];               // {type:'bread'|'hive'|'harp', x,y,w,h}
     let breadTimer=30;            // s
     let hiveTimer=45;             // s
@@ -288,20 +285,15 @@
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
     function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
-    // ===== Fondo =====
+    // ===== Fondo (nubes/casas/ruinas) =====
     let ashParticles=[], clouds=[];
-    function ensureClouds(){
-      if (clouds.length<8){
-        clouds.push({ x:rnd(-W,W*2), y:rnd(30, H*0.35), w:rnd(80,200), h:rnd(20,40), s:rnd(6,14)/10 });
-      }
-    }
+    function ensureClouds(){ if (clouds.length<8){ clouds.push({ x:rnd(-W,W*2), y:rnd(30, H*0.35), w:rnd(80,200), h:rnd(20,40), s:rnd(6,14)/10 }); } }
     function drawBackground(dt){
       const T=currentTheme(elapsed);
       const g=ctx.createLinearGradient(0,0,0,H);
       g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
       ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
-      // Nubes (parallax muy lento)
       ensureClouds();
       ctx.fillStyle='rgba(250,250,255,.18)';
       for (let i=0;i<clouds.length;i++){
@@ -313,21 +305,14 @@
         ctx.clearRect(x+8, Math.floor(c.y)+2, Math.floor(c.w)-16, 2);
       }
 
-      // Glow de horizonte
       ctx.fillStyle=T.glow; ctx.fillRect(0, H-160, W, 160);
+      drawRuins(T.ruin,0.16,220); drawHouses(T.house,0.2,140);
+      drawRuins(T.ruin,0.28,160); drawHouses(T.house,0.35,110);
 
-      // Ruinas lejanas + casas
-      drawRuins(T.ruin,0.16,220);
-      drawHouses(T.house,0.2,140);
-      drawRuins(T.ruin,0.28,160);
-      drawHouses(T.house,0.35,110);
-
-      // Ceniza
       if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
       ctx.fillStyle='rgba(248,250,252,.6)';
       for(let i=ashParticles.length-1;i>=0;i--){ const p=ashParticles[i]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(i,1); }
 
-      // Suelo
       drawGround(T);
     }
     function drawRuins(color,speed,height){
@@ -351,13 +336,9 @@
         for(let k=0;k<6;k++){
           const x = Math.floor(baseX + k*180 + (k%2)*40);
           const w = 64 + (k%3)*16; const h = baseH + (k%2? -18:12);
-          // cuerpo
           ctx.fillRect(x, groundY - h, w, h);
-          // techo
-          ctx.fillStyle = 'rgba(0,0,0,.35)';
-          ctx.fillRect(x-4, groundY - h - 10, w+8, 10);
+          ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x-4, groundY - h - 10, w+8, 10);
           ctx.fillStyle = color;
-          // ventanas
           ctx.fillStyle = 'rgba(255,231,128,.28)'; ctx.fillRect(x+10, groundY - h + 16, 10, 8);
           ctx.fillRect(x+w-22, groundY - h + 28, 10, 8);
           ctx.fillStyle = color;
@@ -393,14 +374,14 @@
     function resetGame(){
       player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false,
                hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1,
-               hives:0, hiveCD:0, hasHarp:false };
+               hives:0, hiveCD:0, hasHarp:false, bread:0, eatCD:0 };
       stones.length=0; enemies.length=0; enemyProjectiles.length=0;
       pickups.length=0; beeBombs.length=0; beeExplosions.length=0; harpPulse.length=0;
       score=0; cameraX=0; paused=false;
       timeStart=performance.now(); timeNow=timeStart; elapsed=0;
       spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
       breadTimer=30; hiveTimer=45; harpTimer=50;
-      updateHUDItems();
+      updateHUDItems(); updateHearts();
     }
 
     // ===== Update =====
@@ -417,7 +398,7 @@
       if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
       player.duck=!!(keys['ArrowDown']||keys['s']);
 
-      // Disparo (honda)
+      // Disparo (honda) - más cadencia
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
         stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
@@ -433,10 +414,15 @@
         player.hiveCD=0.5;
       }
 
-      // Usar harpa
-      if ((keys['h']||keys['H']) && player.hasHarp){
-        useHarp();
+      // Comer pan
+      player.eatCD -= dt; if (player.eatCD<0) player.eatCD=0;
+      if ((keys['e']||keys['E']) && player.bread>0 && player.eatCD===0 && player.hearts<PLAYER.maxHearts){
+        player.bread--; player.hearts = Math.min(PLAYER.maxHearts, player.hearts+1);
+        player.eatCD = 0.35; updateHearts(); updateHUDItems();
       }
+
+      // Usar harpa
+      if ((keys['h']||keys['H']) && player.hasHarp){ useHarp(); }
 
       // Anim player
       if (player.anim==='shoot'){ if (player.animT>=SHOOT_DURATION) player.anim = (Math.abs(player.vx)>1?'walk':'idle'); }
@@ -452,11 +438,11 @@
       // Piedras
       for(let i=stones.length-1;i>=0;i--){ const s=stones[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
 
-      // Spawns de enemigos
+      // Spawns
       spawnTimer -= dt;
       if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
 
-      // Spawns de pickups
+      // Pickups spawn
       breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 30 + rnd(-5,5); }
       hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 45 + rnd(-7,7); }
       harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 50 + rnd(-7,7); }
@@ -470,7 +456,6 @@
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
 
-        // Disparo enemigo
         if (e.projectile && (e.shootCD!==undefined)){
           e.shootCD -= dt;
           if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
@@ -507,29 +492,20 @@
       for(let i=beeBombs.length-1;i>=0;i--){
         const b=beeBombs[i];
         b.vy += b.gravity*dt; b.x += b.vx*dt; b.y += b.vy*dt;
-        if (b.y + b.h >= groundY){ // detona
-          detonateHive(b.x, groundY-10);
-          beeBombs.splice(i,1);
-        }else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(i,1); }
+        if (b.y + b.h >= groundY){ detonateHive(b.x, groundY-10); beeBombs.splice(i,1); }
+        else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(i,1); }
       }
-      // Enjambres (efecto visual)
-      for(let i=beeExplosions.length-1;i>=0;i--){
-        const ex=beeExplosions[i]; ex.t+=dt; if (ex.t>ex.dur) beeExplosions.splice(i,1);
-      }
+      for(let i=beeExplosions.length-1;i>=0;i--){ const ex=beeExplosions[i]; ex.t+=dt; if (ex.t>ex.dur) beeExplosions.splice(i,1); }
 
       // Harpa efecto
-      for (let i=harpPulse.length-1;i>=0;i--){
-        const hp=harpPulse[i]; hp.t += dt; if (hp.t>hp.dur) harpPulse.splice(i,1);
-      }
+      for (let i=harpPulse.length-1;i>=0;i--){ const hp=harpPulse[i]; hp.t += dt; if (hp.t>hp.dur) harpPulse.splice(i,1); }
 
       // Pickups
       for(let i=pickups.length-1;i>=0;i--){
         const it=pickups[i];
         if (rectsOverlap(player,{x:it.x,y:it.y,w:it.w,h:it.h})){
           if (it.type==='bread'){
-            const before = player.hearts;
-            player.hearts = clamp(player.hearts+1, 0, PLAYER.maxHearts);
-            if (player.hearts>before) updateHearts();
+            player.bread++; updateHUDItems();
           } else if (it.type==='hive'){
             player.hives++; updateHUDItems();
           } else if (it.type==='harp'){
@@ -546,7 +522,6 @@
       for(let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
       for(let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
 
-      // Tiempo / HUD
       timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
       hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
       hudScore.textContent = `Puntos: ${score}`;
@@ -559,21 +534,17 @@
       const px = cameraX + W + rnd(60, 220);
       pickups.push({ type, x:px, y: groundY - h, w, h });
     }
-
     function drawPickup(it){
       const x=(it.x - cameraX)|0, y=it.y|0;
       if (it.type==='bread'){
-        // Pan
         ctx.fillStyle='#f8b26a'; ctx.fillRect(x, y+2, it.w, it.h-4);
         ctx.fillStyle='#d97706'; ctx.fillRect(x, y, 3, it.h-2); ctx.fillRect(x+it.w-3, y, 3, it.h-2);
       } else if (it.type==='hive'){
-        // Panal
         ctx.fillStyle='#facc15'; ctx.fillRect(x+3, y+1, it.w-6, it.h-2);
         ctx.fillRect(x+1, y+3, it.w-2, it.h-6);
         ctx.fillRect(x+3, y+it.h-3, it.w-6, 2);
         ctx.fillStyle='#92400e'; ctx.fillRect(x+Math.floor(it.w/2)-2, y+Math.floor(it.h/2)-2, 4, 4);
       } else {
-        // Harpa (lira simple)
         ctx.fillStyle='#eab308'; ctx.fillRect(x+3, y, it.w-6, it.h);
         ctx.clearRect(x+5, y+2, it.w-10, it.h-4);
         ctx.fillStyle='#fde68a'; for(let s=0;s<3;s++){ ctx.fillRect(x+6+s*3, y+2, 1, it.h-4); }
@@ -583,7 +554,6 @@
 
     function detonateHive(cx, cy){
       beeExplosions.push({ x:cx, y:cy, t:0, dur:0.6 });
-      // mata al menos 6 enemigos cercanos si existen
       const withDist = enemies.map((e,idx)=>({idx, e, d: Math.hypot((e.x+e.w*0.5)-cx, (e.y+e.h*0.5)-cy)}));
       withDist.sort((a,b)=>a.d-b.d);
       const victims=[];
@@ -603,20 +573,15 @@
     }
 
     function useHarp(){
-      // pulso visual y purga demonios
       harpPulse.push({ t:0, dur:0.7 });
-      let removed=0;
-      for (let i=enemies.length-1;i>=0;i--){
-        if (enemies[i].type==='demonio'){ score += enemies[i].score; enemies.splice(i,1); removed++; }
-      }
-      player.hasHarp = false;
-      updateHUDItems();
+      for (let i=enemies.length-1;i>=0;i--){ if (enemies[i].type==='demonio'){ score += enemies[i].score; enemies.splice(i,1); } }
+      player.hasHarp = false; updateHUDItems();
     }
 
     // ===== Daño / HUD =====
     function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); updateHearts(); }
     function updateHearts(){ const hearts='❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent=`Vida: ${hearts}`; }
-    function updateHUDItems(){ hudItems.textContent = `Panales: ${player?.hives ?? 0} · Harpa: ${player?.hasHarp ? 'Lista' : '—'}`; }
+    function updateHUDItems(){ hudItems.textContent = `Pan: ${player?.bread ?? 0} · Panales: ${player?.hives ?? 0} · Harpa: ${player?.hasHarp ? 'Lista' : '—'}`; }
 
     // ===== Render =====
     function drawPlayer(){
@@ -642,23 +607,16 @@
     function render(dt){
       drawBackground(dt);
 
-      // pickups
       pickups.forEach(drawPickup);
-
-      // piedras
       stones.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
-
-      // enemigos y proyectiles
       enemies.forEach(drawEnemy);
       enemyProjectiles.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
 
-      // panales arrojados
       beeBombs.forEach(b=>{
         const x=(b.x - cameraX)|0, y=b.y|0;
         ctx.fillStyle='#facc15'; ctx.fillRect(x, y, b.w, b.h);
         ctx.fillStyle='#78350f'; ctx.fillRect(x+4, y+4, 4, 4);
       });
-      // efecto de enjambre
       beeExplosions.forEach(ex=>{
         const prog = ex.t/ex.dur;
         const R = 40 + 80*prog;
@@ -671,7 +629,6 @@
         }
       });
 
-      // efecto harpa (ondas desde el jugador)
       harpPulse.forEach(hp=>{
         const k = hp.t/hp.dur;
         const R = 40 + 340*k;
@@ -697,12 +654,7 @@
 
     // ===== Audio helpers =====
     function playSafe(audio, vol=0.5, reset=false){
-      try{
-        if (reset) audio.currentTime = 0;
-        audio.volume = vol;
-        const p = audio.play();
-        if (p && p.catch) p.catch(()=>{});
-      }catch(_){}
+      try{ if (reset) audio.currentTime = 0; audio.volume = vol; const p = audio.play(); if (p && p.catch) p.catch(()=>{}); }catch(_){}
     }
     function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
 
@@ -721,11 +673,11 @@
     // ===== Flujo =====
     function startGame(){
       state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
-      resetGame(); updateHearts();
+      resetGame();
       stopSafe(bgmLobby);
       playSafe(bgmGame, 0.45, true);
       stopSafe(bgmLose); try{ bgmLose.currentTime=0; }catch(_){}
-      goFullscreen(); // intentar fullscreen al iniciar
+      goFullscreen();
       window.focus();
     }
     function gameOver(){
@@ -752,10 +704,8 @@
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
 
-    // Record
-    bestStart.textContent = fmtTime(getBest());
+    bestStart.textContent = fmtTime(+localStorage.getItem('erd_best')||0);
 
-    // Música lobby con gesto
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
@@ -764,7 +714,6 @@
     ['pointerdown','keydown','touchstart','pointermove','click'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
-    // Boot
     requestAnimationFrame(ts=>{ last=ts; loop(ts); });
   })();
   </script>
