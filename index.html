@@ -24,7 +24,7 @@
     /* HUD arriba-izquierda */
     .hud {
       position: fixed; left: 10px; top: 8px;
-      width: auto; max-width: 50vw;
+      width: auto; max-width: 60vw;
       display: flex; flex-wrap: wrap;
       justify-content: flex-start; align-items: center; gap: 8px 10px;
       font-size: 14px; opacity: .95; user-select: none; z-index: 8;
@@ -77,18 +77,18 @@
         <ul>
           <li>← / → : Mover · ↑ : Saltar · ↓ : Agacharse</li>
           <li>ESPACIO : Lanzar piedra (honda)</li>
-          <li>G : Lanzar panal (granada de abejas)</li>
+          <li>G : Lanzar panal (granada de abejas, mata 6 cercanos)</li>
           <li><b>E : Comer pan</b> (+1 corazón)</li>
-          <li>H : Tocar <b>harpa</b> (purga demonios)</li>
+          <li>H : Tocar <b>harpa</b> (los demonios desaparecen)</li>
           <li>P : Pausar · I : Mostrar/Ocultar ayuda</li>
         </ul>
-        <div class="hint">Panel ocultable con <b>I</b>. Al iniciar se intentará <b>pantalla completa</b>.</div>
+        <div class="hint">Se usará <b>pantalla completa</b> al iniciar. Plataformas y relieves disponibles para saltar.</div>
       </div>
 
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
-          <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
+          <div class="subtitle">Pixel-arcade apocalíptico: colinas oscuras, ruinas y ceniza. Sobrevive a hordas crecientes.</div>
           <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
           <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
           <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, <b>G</b>, <b>E</b>, <b>H</b>, P, I</div>
@@ -156,14 +156,17 @@
     window.addEventListener('resize', resizeCanvas, { passive:true });
     resizeCanvas();
 
+    // ===== Helper: enteros (evita “doble” por subpixel) =====
+    const i = v => v|0;
+
     // ===== Constantes =====
     const GRAVITY = 2400, FRICTION = 0.85;
     // Cadencia de la honda aumentada
     const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.18 };
     const THEMES = [
-      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#402b2b' },
-      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3f3321' },
-      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34', house:'#21383a' }
+      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#402b2b', mountain:'#1b1014' },
+      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3f3321', mountain:'#1c1409' },
+      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34', house:'#21383a', mountain:'#0d1a22' }
     ];
     const currentTheme = (t)=>THEMES[Math.floor(t/60)%THEMES.length];
 
@@ -231,11 +234,11 @@
       const base=Math.min(w/f.sw,h/f.sh)*SPRITE_SCALE*(scaleMul||1);
       const scale=Math.max(0.25,Math.round(base*4)/4);
       const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
-      const destBottom=Math.round(y+h+(yNudge||0));
-      const destTop=Math.round(destBottom - (f.footLocal+1)*scale);
-      const dx=Math.round(x+(w-dw)*0.5);
+      const destBottom=i(y+h+(yNudge||0));
+      const destTop=i(destBottom - (f.footLocal+1)*scale);
+      const dx=i(x+(w-dw)*0.5);
 
-      ctx.drawImage(src, 0, 0, f.sw|0, f.sh|0, dx|0, destTop|0, dw|0, dh|0);
+      ctx.drawImage(src, 0, 0, f.sw|0, f.sh|0, dx, destTop, dw, dh);
     }
     function animIndex(sheet, anim, t, fps){
       const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0];
@@ -273,6 +276,10 @@
     let beeExplosions=[];         // efectos
     let harpPulse=[];             // efecto visual de harpa
 
+    // Plataformas / relieves (player colisiona)
+    let platforms=[];             // {x,y,w,h,type}
+    let lastPlatformEnd = 0;
+
     const SHOOT_DURATION = 0.55;
 
     // ===== Utils =====
@@ -284,14 +291,43 @@
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
     function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
-    // ===== Fondo (nubes/casas/ruinas) =====
+    // ===== Fondo (nubes/colinas/montañas/casas/ruinas/ceniza) =====
     let ashParticles=[], clouds=[];
-    function ensureClouds(){ if (clouds.length<8){ clouds.push({ x:rnd(-W,W*2), y:rnd(30, H*0.35), w:rnd(80,200), h:rnd(20,40), s:rnd(6,14)/10 }); } }
+    function ensureClouds(){ if (clouds.length<10){ clouds.push({ x:rnd(-W,W*2), y:rnd(30, H*0.35), w:rnd(80,200), h:rnd(20,40), s:rnd(6,14)/10 }); } }
+
+    function drawMountains(color, speed, height, rough){
+      const CAM = Math.round(cameraX*speed);
+      ctx.fillStyle = color;
+      // cadena simple en triángulos y picos redondeados
+      for (let i=-2;i<4;i++){
+        const baseX = i*W - (CAM % W);
+        let x = baseX - 80;
+        while (x < baseX + W + 160){
+          const w = rnd(120, 260);
+          const h = height + rnd(-20, 40);
+          const peakX = x + w*0.5 + rnd(-20,20);
+          ctx.beginPath();
+          ctx.moveTo(i(x), i(groundY));
+          ctx.lineTo(i(x+w*0.1), i(groundY-h*0.3));
+          ctx.lineTo(i(peakX), i(groundY-h));
+          ctx.lineTo(i(x+w*0.9), i(groundY-h*0.35));
+          ctx.lineTo(i(x+w), i(groundY));
+          ctx.closePath();
+          ctx.fill();
+          x += w * rough;
+        }
+      }
+    }
+
     function drawBackground(dt){
       const T=currentTheme(elapsed);
       const g=ctx.createLinearGradient(0,0,0,H);
       g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
       ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+      // Montañas lejanas + medias
+      drawMountains(T.mountain, 0.06, 220, 0.7);
+      drawMountains(T.mountain, 0.10, 160, 0.75);
 
       ensureClouds();
       ctx.fillStyle='rgba(250,250,255,.18)';
@@ -299,18 +335,18 @@
         const c=clouds[i];
         c.x -= c.s * dt * 30;
         if (c.x + c.w < -60){ c.x = W + rnd(20,200); c.y = rnd(30, H*0.35); c.w=rnd(80,200); c.h=rnd(20,40); c.s=rnd(6,14)/10; }
-        const x = Math.floor(c.x - cameraX*0.08);
-        ctx.fillRect(x, Math.floor(c.y), Math.floor(c.w), Math.floor(c.h));
-        ctx.clearRect(x+8, Math.floor(c.y)+2, Math.floor(c.w)-16, 2);
+        const x = i(c.x - cameraX*0.08);
+        ctx.fillRect(x, i(c.y), i(c.w), i(c.h));
+        ctx.clearRect(x+8, i(c.y)+2, i(c.w)-16, 2);
       }
 
       ctx.fillStyle=T.glow; ctx.fillRect(0, H-160, W, 160);
       drawRuins(T.ruin,0.16,220); drawHouses(T.house,0.2,140);
       drawRuins(T.ruin,0.28,160); drawHouses(T.house,0.35,110);
 
-      if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
+      if (ashParticles.length<140 && chance(0.65)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
       ctx.fillStyle='rgba(248,250,252,.6)';
-      for(let i=ashParticles.length-1;i>=0;i--){ const p=ashParticles[i]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect((Math.floor(p.x - cameraX*0.2)), Math.floor(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(i,1); }
+      for(let i2=ashParticles.length-1;i2>=0;i2--){ const p=ashParticles[i2]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect(i(p.x - cameraX*0.2), i(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(i2,1); }
 
       drawGround(T);
     }
@@ -319,8 +355,8 @@
       for(let i=-1;i<3;i++){
         const baseX=i*W - offset;
         for(let b=0;b<5;b++){
-          const x=Math.floor(baseX + b*220);
-          const w=Math.floor(80 + (b%3)*10);
+          const x=i(baseX + b*220);
+          const w=i(80 + (b%3)*10);
           const h=height + (b%2? -20:20);
           ctx.fillRect(x, groundY - h, w, h);
           ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
@@ -333,7 +369,7 @@
       for(let i=-1;i<3;i++){
         const baseX = i*W - offset;
         for(let k=0;k<6;k++){
-          const x = Math.floor(baseX + k*180 + (k%2)*40);
+          const x = i(baseX + k*180 + (k%2)*40);
           const w = 64 + (k%3)*16; const h = baseH + (k%2? -18:12);
           ctx.fillRect(x, groundY - h, w, h);
           ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x-4, groundY - h - 10, w+8, 10);
@@ -345,28 +381,89 @@
       }
     }
     function drawGround(T){
+      // tierra
       ctx.fillStyle=T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
-      ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
-      for(let x=-((Math.floor(cameraX))%16); x<W; x+=16){
+      // vetas
+      ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(i(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
+      // pasto irregular + pequeños montículos dibujados
+      for(let x=-((i(cameraX))%16); x<W; x+=16){
         ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
-        ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12 - ((x/64|0)%2), 12, 5);
         ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
+      // pequeñas colinitas decorativas de primer plano (no colisionables)
+      ctx.fillStyle='rgba(0,0,0,.15)';
+      for(let k=0;k<W;k+=180){
+        ctx.beginPath();
+        const hx = k + (i(cameraX*0.2)%180);
+        ctx.ellipse(hx, groundY-6, 22, 8, 0, 0, Math.PI*2);
+        ctx.fill();
       }
     }
 
-    // ===== Spawns =====
-    function pickEnemyType(t){ const pool=[]; p('soldado',4); p('ladron',4); p('arquero',4); p('roca',2); if(t>20){p('bruto',3);p('leon',3);} if(t>35){p('oso',2);} if(t>25){p('demonio',3);} function p(k,n){for(let i=0;i<n;i++)pool.push(k);} const key=pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
-    function spawnEnemy(timeSec){
-      if(enemies.length>maxEnemies) return;
-      const t=pickEnemyType(timeSec);
-      const e={ type:t.key, sheet:t.sheet, anim:t.anim, animT:0, fps:t.fps||8,
-        hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h,
-        ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
-        x: cameraX + W + rnd(20,220), y:0, vx:0, vy:0, shootCD:t.shootCooldown||0, projectile:t.projectile||null, tRef:t, phase:rnd(0,Math.PI*2)
-      };
-      e.y = e.ground ? (groundY - e.h) : rnd(120, Math.max(160, H*0.45));
-      enemies.push(e);
-      if (chance(0.12)){ const extra=1+((Math.random()*2)|0); for(let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1), animT:rnd(0,1)}); }
+    // ===== Plataformas / relieves =====
+    function ensurePlatforms(){
+      const rightEdge = cameraX + W + 220;
+      if (platforms.length===0) lastPlatformEnd = cameraX + 120;
+      while (lastPlatformEnd < rightEdge){
+        const type = chance(0.5)? 'block' : 'ledge';
+        const w = type==='block' ? rnd(60,120)|0 : rnd(120,220)|0;
+        const h = 14;
+        const gap = rnd(80, 180);
+        const x = lastPlatformEnd + gap;
+        // altura aleatoria, pero razonable para saltar
+        const y = groundY - rnd(90, 180)|0;
+        platforms.push({ x, y, w, h, type });
+        lastPlatformEnd = x + w;
+        // ocasional “doble altura”
+        if (chance(0.25) && type==='block'){
+          const w2 = (w*0.6)|0;
+          platforms.push({ x: x + ((w-w2)/2)|0, y: y - 26, w: w2, h: 12, type:'block' });
+        }
+      }
+      // limpia las que quedan muy atrás
+      for (let j=platforms.length-1;j>=0;j--){
+        if (platforms[j].x + platforms[j].w < cameraX - 120) platforms.splice(j,1);
+      }
+    }
+
+    function drawPlatforms(){
+      const CAM = Math.round(cameraX);
+      for (const p of platforms){
+        const x = i(p.x - CAM), y = i(p.y);
+        // borde
+        ctx.fillStyle = '#2b1a18';
+        ctx.fillRect(x, y, p.w, p.h);
+        // tapa con textura
+        ctx.fillStyle = '#5a3a33';
+        ctx.fillRect(x, y, p.w, 6);
+        for (let t=0;t<p.w;t+=6) ctx.fillRect(x+t, y+6, 2, 2);
+        // musgo
+        ctx.fillStyle = '#3b5f54';
+        ctx.fillRect(x+2, y-3, p.w-4, 3);
+      }
+    }
+
+    function collidePlayerWithPlatforms(px, py, vx, vy, dt){
+      // barrido simple solo en vertical (aterrizaje)
+      let newX = px + vx*dt;
+      let newY = py + vy*dt;
+      const ph = player.duck ? player.h-10 : player.h;
+
+      // cae sobre plataforma
+      if (vy >= 0){
+        for (const p of platforms){
+          const withinX = (newX + player.w) > p.x && newX < (p.x + p.w);
+          const fromAbove = (py + ph) <= p.y && (newY + ph) >= p.y;
+          if (withinX && fromAbove){
+            newY = p.y - ph;
+            player.onGround = true;
+            player.vy = 0;
+            return { x:newX, y:newY, grounded:true };
+          }
+        }
+      }
+      return { x:newX, y:newY, grounded:false };
     }
 
     // ===== Reset =====
@@ -376,6 +473,7 @@
                hives:0, hiveCD:0, hasHarp:false, bread:0, eatCD:0 };
       stones.length=0; enemies.length=0; enemyProjectiles.length=0;
       pickups.length=0; beeBombs.length=0; beeExplosions.length=0; harpPulse.length=0;
+      platforms.length=0; lastPlatformEnd = cameraX + 120;
       score=0; cameraX=0; paused=false;
       timeStart=performance.now(); timeNow=timeStart; elapsed=0;
       spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
@@ -388,6 +486,9 @@
       if (paused) return;
       cameraX += (player.x - cameraX - 240) * 0.06;
 
+      // Plataformas nuevas
+      ensurePlatforms();
+
       // Movimiento
       const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
       let moving=false;
@@ -397,14 +498,14 @@
       if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
       player.duck=!!(keys['ArrowDown']||keys['s']);
 
-      // Disparo (honda) - mayor cadencia
+      // Disparo (honda)
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
         stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
         player.canShoot=PLAYER.stoneCooldown; player.anim='shoot'; player.animT=0;
       }
 
-      // Lanzar panal (granada)
+      // Lanzar panal
       player.hiveCD -= dt; if (player.hiveCD<0) player.hiveCD=0;
       if ((keys['g']||keys['G']) && player.hives>0 && player.hiveCD===0){
         const dir = player.facing>=0 ? 1 : -1;
@@ -428,27 +529,36 @@
       else { player.anim = moving ? 'walk' : 'idle'; }
       player.animT += dt;
 
-      // Físicas player
-      player.vy += GRAVITY*dt; player.x += player.vx*dt; player.y += player.vy*dt;
-      const ph=player.duck?player.h-10:player.h;
-      if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
+      // Físicas player + plataformas
+      player.vy += GRAVITY*dt;
+      let col = collidePlayerWithPlatforms(player.x, player.y, player.vx, player.vy, dt);
+      player.x = col.x; player.y = col.y;
+      if (!col.grounded){
+        if (player.y + (player.duck?player.h-10:player.h) >= groundY){
+          player.y = groundY - (player.duck?player.h-10:player.h); player.vy=0; player.onGround=true;
+        } else {
+          player.onGround=false;
+        }
+      }
+
+      // altura mínima
       if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
 
       // Piedras
-      for(let i=stones.length-1;i>=0;i--){ const s=stones[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
+      for(let i3=stones.length-1;i3>=0;i3--){ const s=stones[i3]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i3,1); }
 
       // Spawns de enemigos
       spawnTimer -= dt;
       if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
 
-      // Spawns de pickups (20/20/22 con aleatorio ligero)
+      // Spawns de pickups
       breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 20 + rnd(-4,4); }
       hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 20 + rnd(-4,4); }
       harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 22 + rnd(-4,4); }
 
       // Enemigos
-      for(let i=enemies.length-1;i>=0;i--){
-        const e=enemies[i];
+      for(let i4=enemies.length-1;i4>=0;i4--){
+        const e=enemies[i4];
         if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
         else if (e.roller){ e.vx=-e.speed; }
         else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
@@ -468,41 +578,41 @@
           }
         }
         e.animT += dt;
-        if (e.x + e.w < cameraX - 40){ enemies.splice(i,1); continue; }
+        if (e.x + e.w < cameraX - 40){ enemies.splice(i4,1); continue; }
       }
 
       // Proyectiles enemigos
-      for(let i=enemyProjectiles.length-1;i>=0;i--){
-        const p=enemyProjectiles[i];
+      for(let i5=enemyProjectiles.length-1;i5>=0;i5--){
+        const p=enemyProjectiles[i5];
         p.vy += (p.gravity||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
-        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(i,1); continue; }
-        if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i,1); continue; }
+        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(i5,1); continue; }
+        if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(i5,1); continue; }
       }
 
       // Colisiones piedra vs enemigo
-      for(let i=enemies.length-1;i>=0;i--){
-        const e=enemies[i];
+      for(let i6=enemies.length-1;i6>=0;i6--){
+        const e=enemies[i6];
         for(let j=stones.length-1;j>=0;j--){
           const s=stones[j];
-          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i,1); break; } }
+          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(i6,1); break; } }
         }
       }
 
       // Panales arrojados
-      for(let i=beeBombs.length-1;i>=0;i--){
-        const b=beeBombs[i];
+      for(let i7=beeBombs.length-1;i7>=0;i7--){
+        const b=beeBombs[i7];
         b.vy += b.gravity*dt; b.x += b.vx*dt; b.y += b.vy*dt;
-        if (b.y + b.h >= groundY){ detonateHive(b.x, groundY-10); beeBombs.splice(i,1); }
-        else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(i,1); }
+        if (b.y + b.h >= groundY){ detonateHive(b.x, groundY-10); beeBombs.splice(i7,1); }
+        else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(i7,1); }
       }
-      for(let i=beeExplosions.length-1;i>=0;i--){ const ex=beeExplosions[i]; ex.t+=dt; if (ex.t>ex.dur) beeExplosions.splice(i,1); }
+      for(let i8=beeExplosions.length-1;i8>=0;i8--){ const ex=beeExplosions[i8]; ex.t+=dt; if (ex.t>ex.dur) beeExplosions.splice(i8,1); }
 
       // Harpa efecto
-      for (let i=harpPulse.length-1;i>=0;i--){ const hp=harpPulse[i]; hp.t += dt; if (hp.t>hp.dur) harpPulse.splice(i,1); }
+      for (let i9=harpPulse.length-1;i9>=0;i9--){ const hp=harpPulse[i9]; hp.t += dt; if (hp.t>hp.dur) harpPulse.splice(i9,1); }
 
       // Pickups
-      for(let i=pickups.length-1;i>=0;i--){
-        const it=pickups[i];
+      for(let i10=pickups.length-1;i10>=0;i10--){
+        const it=pickups[i10];
         if (rectsOverlap(player,{x:it.x,y:it.y,w:it.w,h:it.h})){
           if (it.type==='bread'){
             player.bread++; updateHUDItems();
@@ -511,16 +621,16 @@
           } else if (it.type==='harp'){
             player.hasHarp = true; updateHUDItems();
           }
-          pickups.splice(i,1);
+          pickups.splice(i10,1);
         }
-        if (it.x + it.w < cameraX - 60) pickups.splice(i,1);
+        if (it.x + it.w < cameraX - 60) pickups.splice(i10,1);
       }
 
       // Daño al jugador
       if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
       const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h: player.duck?player.h-10:player.h };
-      for(let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
-      for(let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
+      for(let i11=enemies.length-1;i11>=0;i11--) if (rectsOverlap(pHit, enemies[i11])) { if (player.inv===0) damagePlayer(enemies[i11].damage); }
+      for(let i12=enemyProjectiles.length-1;i12>=0;i12--) if (rectsOverlap(pHit, enemyProjectiles[i12])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i12,1); }
 
       // HUD
       timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
@@ -536,7 +646,8 @@
       pickups.push({ type, x:px, y: groundY - h, w, h });
     }
     function drawPickup(it){
-      const x=(it.x - cameraX)|0, y=it.y|0;
+      const CAM = Math.round(cameraX);
+      const x=i(it.x - CAM), y=i(it.y);
       if (it.type==='bread'){
         ctx.fillStyle='#f8b26a'; ctx.fillRect(x, y+2, it.w, it.h-4);
         ctx.fillStyle='#d97706'; ctx.fillRect(x, y, 3, it.h-2); ctx.fillRect(x+it.w-3, y, 3, it.h-2);
@@ -586,8 +697,10 @@
 
     // ===== Render =====
     function drawPlayer(){
-      const px=(player.x - cameraX)|0, py=player.y|0;
-      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
+      const CAM = Math.round(cameraX);
+      const px = i(player.x - CAM), py = i(player.y);
+      ctx.fillStyle='rgba(0,0,0,.28)';
+      ctx.fillRect(px-5, groundY-4, player.w+10, 3);
       if (SPRITES_READY){
         const idx = animIndex('david', player.anim, player.animT, player.anim==='shoot'?10:9);
         drawTrimmed('david', idx, px, py, player.w, player.h, 1, 0);
@@ -596,50 +709,64 @@
       }
     }
     function drawEnemy(e){
-      if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3); }
+      const CAM = Math.round(cameraX);
+      const gx = i(e.x - CAM);
+      const gy = i(e.y);
+      if (!e.flyer && !e.roller){
+        ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(gx - 4, groundY-4, (e.w+8)|0, 3);
+      }
       if (SPRITES_READY){
         let anim=e.anim; if (e.sheet==='demonio' && anim==='fire' && e.animT>0.3) anim='fly';
         const idx=animIndex(e.sheet, anim, e.animT, e.fps||8);
-        drawTrimmed(e.sheet, idx, (e.x - cameraX)|0, e.y|0, e.w, e.h, 1, 0);
+        const yNudge = (!e.flyer ? 2 : 0);
+        drawTrimmed(e.sheet, idx, gx, gy, e.w, e.h, 1, yNudge);
       } else {
-        ctx.fillStyle='#e879f9'; ctx.fillRect((e.x - cameraX)|0, e.y|0, e.w, e.h);
+        ctx.fillStyle='#e879f9'; ctx.fillRect(gx, gy, e.w, e.h);
       }
     }
     function render(dt){
       drawBackground(dt);
+      drawPlatforms();
 
-      pickups.forEach(drawPickup);
-      stones.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
-      enemies.forEach(drawEnemy);
-      enemyProjectiles.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
+      // pickups
+      for (const it of pickups) drawPickup(it);
 
-      beeBombs.forEach(b=>{
-        const x=(b.x - cameraX)|0, y=b.y|0;
+      // piedras
+      for (const s of stones){ ctx.fillStyle=s.color; ctx.fillRect(i(s.x - Math.round(cameraX)), i(s.y), s.w, s.h); }
+
+      // enemigos y proyectiles
+      for (const e of enemies) drawEnemy(e);
+      for (const p of enemyProjectiles){ ctx.fillStyle=p.color; ctx.fillRect(i(p.x - Math.round(cameraX)), i(p.y), p.w, p.h); }
+
+      // panales arrojados
+      for (const b of beeBombs){
+        const x=i(b.x - Math.round(cameraX)), y=i(b.y);
         ctx.fillStyle='#facc15'; ctx.fillRect(x, y, b.w, b.h);
         ctx.fillStyle='#78350f'; ctx.fillRect(x+4, y+4, 4, 4);
-      });
-      beeExplosions.forEach(ex=>{
+      }
+      // efecto de enjambre
+      for (const ex of beeExplosions){
         const prog = ex.t/ex.dur;
         const R = 40 + 80*prog;
-        for(let i=0;i<14;i++){
-          const ang = (i/14)*Math.PI*2 + prog*6;
-          const px = (ex.x - cameraX) + Math.cos(ang)*R;
+        for(let i2=0;i2<14;i2++){
+          const ang = (i2/14)*Math.PI*2 + prog*6;
+          const px = (ex.x - Math.round(cameraX)) + Math.cos(ang)*R;
           const py = ex.y - Math.sin(ang)*R*0.6;
-          ctx.fillStyle = (i%2)? 'rgba(250,204,21,0.85)' : 'rgba(234,179,8,0.85)';
-          ctx.fillRect(px|0, py|0, 3, 3);
+          ctx.fillStyle = (i2%2)? 'rgba(250,204,21,0.85)' : 'rgba(234,179,8,0.85)';
+          ctx.fillRect(i(px), i(py), 3, 3);
         }
-      });
+      }
 
-      // Ondas de harpa
-      harpPulse.forEach(hp=>{
+      // ondas de harpa
+      for (const hp of harpPulse){
         const k = hp.t/hp.dur;
         const R = 40 + 340*k;
         ctx.strokeStyle = `rgba(234,179,8,${1-k})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc((player.x - cameraX)|0, (player.y+10)|0, R, 0, Math.PI*2);
+        ctx.arc(i(player.x - Math.round(cameraX)), i(player.y+10), R, 0, Math.PI*2);
         ctx.stroke();
-      });
+      }
 
       drawPlayer();
 
@@ -660,11 +787,11 @@
     }
     function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
 
-    // ===== Fullscreen helper =====
+    // ===== Fullscreen helper (documento completo) =====
     async function goFullscreen() {
-      const el = stageEl;
       try {
         if (document.fullscreenElement) return;
+        const el = document.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
         else if (el.msRequestFullscreen) await el.msRequestFullscreen();
