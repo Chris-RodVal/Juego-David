@@ -48,13 +48,14 @@
 <body>
   <div class="wrap">
     <div class="stage">
-      <!-- Música de fondo -->
+      <!-- Música -->
       <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
       <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
       <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
+
       <canvas id="game" width="960" height="540"></canvas>
 
-      <!-- Panel de Controles (toggle con 'i') -->
+      <!-- Panel de Controles -->
       <div id="controlsPanel" class="controls-panel">
         <h3>Controles</h3>
         <ul>
@@ -62,13 +63,13 @@
           <li>↑ : Saltar</li>
           <li>↓ : Agacharse</li>
           <li>ESPACIO : Lanzar piedra (honda)</li>
-          <li>P : Pausar / Reanudar</li>
+          <li>P : Pausar</li>
           <li>I : Mostrar/Ocultar ayuda</li>
         </ul>
         <div class="hint">Consejo: mantén distancia, los arqueros y demonios ahora son más agresivos.</div>
       </div>
 
-      <!-- Start Screen -->
+      <!-- Start -->
       <div id="startOverlay" class="overlay">
         <div class="panel">
           <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
@@ -81,7 +82,7 @@
         </div>
       </div>
 
-      <!-- Game Over Screen -->
+      <!-- Game Over -->
       <div id="gameOverOverlay" class="overlay hidden">
         <div class="panel">
           <h1 class="title">El valle te ha reclamado…</h1>
@@ -103,19 +104,18 @@
 
   <script>
   (() => {
-    // ======== Canvas & Context ========
+    // ===== Canvas & Audio elements =====
     const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d', { alpha: true });
+    const ctx = canvas.getContext('2d', { alpha:true });
     ctx.imageSmoothingEnabled = false;
 
-    // ======== UI Elements ========
-    const startOverlay   = document.getElementById('startOverlay');
-    const gameOverOverlay= document.getElementById('gameOverOverlay');
-    const btnStart       = document.getElementById('btnStart');
-    const btnRestart     = document.getElementById('btnRestart');
-    const bestStart      = document.getElementById('bestStart');
-    const bestTimeEl     = document.getElementById('bestTime');
-    const timeSurvivedEl = document.getElementById('timeSurvived');
+    const startOverlay    = document.getElementById('startOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const btnStart        = document.getElementById('btnStart');
+    const btnRestart      = document.getElementById('btnRestart');
+    const bestStart       = document.getElementById('bestStart');
+    const bestTimeEl      = document.getElementById('bestTime');
+    const timeSurvivedEl  = document.getElementById('timeSurvived');
 
     const hudHealth = document.getElementById('hudHealth');
     const hudTime   = document.getElementById('hudTime');
@@ -126,14 +126,21 @@
     const bgmGame  = document.getElementById('bgmGame');
     const bgmLose  = document.getElementById('bgmLose');
 
-    // ======== Game Constants ========
+    // ===== Game constants =====
     const W = canvas.width, H = canvas.height;
     const GRAVITY = 2400;        // px/s^2
-    const FRICTION = 0.85;       // ground slide
+    const FRICTION = 0.85;
 
     const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.33 };
 
-    // Sprites
+    // Fondo temático
+    const THEMES = [
+      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
+      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
+      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
+    ];
+
+    // ===== Sprite sheets =====
     const SOURCES = {
       david:   "David.png",
       soldado: "Soldado_basico.png",
@@ -146,154 +153,146 @@
       roca:    "Roca.png",
     };
 
-    // GRID por hoja (ajusta si cambian tus PNG)
+    // Grillas reales por hoja (según tus PNGs)
     const GRID = {
-      david:   { cols:6, rows:4 },
-      soldado: { cols:6, rows:4 },
-      arquero: { cols:6, rows:4 },
-      bruto:   { cols:6, rows:4 },
-      ladron:  { cols:6, rows:4 },
-      leon:    { cols:6, rows:4 },
-      oso:     { cols:6, rows:4 },
-      roca:    { cols:6, rows:4 },
-      demonio: { cols:2, rows:2 }, // este es distinto
+      david:   { cols: 5, rows: 2 },
+      soldado: { cols: 4, rows: 1 },
+      arquero: { cols: 6, rows: 1 },
+      bruto:   { cols: 6, rows: 1 },
+      ladron:  { cols: 6, rows: 1 },
+      leon:    { cols: 5, rows: 1 },
+      oso:     { cols: 5, rows: 1 },
+      roca:    { cols: 4, rows: 1 },
+      demonio: { cols: 2, rows: 2 },
     };
 
-    // Secuencias (índices por fila/columna como 0..total-1)
-    const seq = (a,b)=>{ const out=[]; for(let i=a;i<=b;i++) out.push(i); return out; };
-    const PLAYER_SEQ = { idle:seq(6,9), walk:seq(12,15), sling:[18,19,20,21] };
-    const ENEMY_SEQ  = {
-      soldado:{ idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      arquero:{ idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      bruto:  { idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      ladron: { idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      leon:   { idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      oso:    { idle:seq(6,9),  walk:seq(12,15), atk:seq(18,21) },
-      roca:   { roll:seq(12,15) },
-      demonio:{ idle:[0,1,0,1], atk:[2,3,2,3] }
+    // Secuencias de animación
+    const ANIMS = {
+      david:   { walk:[0,1,2,3,4], shoot:[5,6,7,8,9], idle:[0] },
+      soldado: { walk:[0,1,2,3], idle:[0] },
+      arquero: { walk:[0,1,2,3,4,5], idle:[3] },
+      bruto:   { walk:[0,1,2,3,4,5], idle:[2] },
+      ladron:  { walk:[0,1,2,3,4,5], idle:[0] },
+      leon:    { walk:[0,1,2,3,4], idle:[2] },
+      oso:     { walk:[0,1,2,3,4], idle:[2] },
+      roca:    { roll:[0,1,2,3] },
+      demonio: { fly:[0,1], fire:[2,3], idle:[0] }
     };
-    const ENEMY_RATE = { soldado:.14, arquero:.15, bruto:.16, ladron:.12, leon:.12, oso:.13, demonio:.12, roca:.10 };
 
-    // Ajustes de escala visual por tipo (no tocan colisión)
-    const VISUAL = {
-      bruto:{ scale:1.0, y:0 }, leon:{ scale:1.0, y:0 }, oso:{ scale:1.0, y:0 },
-      demonio:{ scale:1.0, y:0 }, roca:{ scale:1.0, y:0 }
-    };
-    const SPRITE_SCALE = 1.0;        // factor global
-    const ALPHA_THRESHOLD = 24;       // recorte por alfa
-    const SRC_INSET = 0.01;           // anti-bleed del recorte
+    // Carga y recorte (auto-trim) con anclaje al “pie”
+    const Sheets = {};
+    const ALPHA_THRESHOLD = 24;
+    let SPRITES_READY = false;
 
-    // Carga + recorte
-    const Sheets = {}; let SPRITES_READY=false;
-    function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+    function loadImage(src){ return new Promise((res, rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+
     function buildGridWithTrim(key, img){
-      const {cols,rows}=GRID[key]; const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
-      const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
-      const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.drawImage(img,0,0);
-      const data=tg.getImageData(0,0,tmp.width,tmp.height).data;
+      const {cols, rows} = GRID[key];
+      const fw = Math.floor(img.naturalWidth / cols);
+      const fh = Math.floor(img.naturalHeight / rows);
 
-      function scanCell(c,r){
+      const tmp = document.createElement('canvas');
+      tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+      const tg = tmp.getContext('2d', { willReadFrequently:true });
+      tg.drawImage(img,0,0);
+      const data = tg.getImageData(0,0,tmp.width,tmp.height).data;
+
+      function cellInfo(c,r){
         const sx0=c*fw, sy0=r*fh;
         let minX=fw, minY=fh, maxX=-1, maxY=-1;
         for(let y=0;y<fh;y++){
+          const gy=sy0+y;
           for(let x=0;x<fw;x++){
-            const a=data[((sy0+y)*tmp.width + (sx0+x))*4 + 3];
-            if(a>ALPHA_THRESHOLD){ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }
+            const gx=sx0+x;
+            const a=data[(gy*tmp.width + gx)*4 + 3];
+            if(a>ALPHA_THRESHOLD){
+              if(x<minX)minX=x; if(y<minY)minY=y;
+              if(x>maxX)maxX=x; if(y>maxY)maxY=y;
+            }
           }
         }
-        if(maxX<0||maxY<0){ return { sx:sx0, sy:sy0, sw:fw, sh:fh, foot:fh-1, empty:true }; }
-        return { sx:sx0+minX, sy:sy0+minY, sw:maxX-minX+1, sh:maxY-minY+1, foot:maxY, empty:false, fw, fh };
+        if(maxX<0||maxY<0){
+          // celda vacía
+          return { sx:sx0, sy:sy0, sw:fw, sh:fh, footLocal:fh-1, empty:true };
+        }
+        const sw=maxX-minX+1, sh=maxY-minY+1;
+        const footLocal = maxY - minY; // pie relativo al recorte
+        return { sx:sx0+minX, sy:sy0+minY, sw, sh, footLocal, empty:false };
       }
 
       const frames=[];
-      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(scanCell(c,r));
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cellInfo(c,r));
       Sheets[key]={ img, fw, fh, cols, rows, total:frames.length, frames };
     }
-    (async ()=>{
-      for(const [k,src] of Object.entries(SOURCES)){ try{ const im=await loadImage(src); buildGridWithTrim(k, im); }catch(e){ console.warn('Fallo sprite',k,e); } }
-      SPRITES_READY=true;
-    })();
 
-    // Helper: elige frame válido
-    function pickFrame(sheetKey, arr, tick){
-      const S=Sheets[sheetKey]; if(!S) return 0;
-      const out=[]; const total=S.total;
-      for(const i of arr){ const f=((i%total)+total)%total; const fr=S.frames[f]; if(fr && !fr.empty) out.push(f); }
-      return out.length ? out[tick % out.length] : 0;
+    async function loadAll(){
+      for (const [key,src] of Object.entries(SOURCES)){
+        const img = await loadImage(src);
+        buildGridWithTrim(key, img);
+      }
+      SPRITES_READY = true;
     }
+    loadAll();
 
-    // Dibuja anclado al “pie” de la celda (sin sangrado de otras celdas)
-    function drawAnchored(sheetKey, frameIndex, x, y, w, h, scaleMul=1){
-      const S=Sheets[sheetKey]; if(!S){ ctx.fillStyle='#334155'; ctx.fillRect(x|0,y|0,w,h); return; }
-      const T=S.frames[frameIndex] || {sx:0,sy:0,sw:S.fw,sh:S.fh,foot:S.fh-1};
-      const base = Math.min(w/T.sw, h/T.sh) * SPRITE_SCALE * (scaleMul||1);
+    // Dibujo de un frame recortado, anclado al suelo
+    const SPRITE_SCALE = 0.64; // escala global suave
+    function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
+      const S=Sheets[sheetKey];
+      if(!S){ return; }
+      const f = S.frames[Math.max(0, Math.min(frameIdx|0, S.total-1))];
+      const base = Math.min(w / f.sw, h / f.sh) * SPRITE_SCALE * (scaleMul||1);
       const scale = Math.max(0.25, Math.round(base*4)/4);
-      const dw=Math.max(1,Math.round(T.sw*scale));
-      const dh=Math.max(1,Math.round(T.sh*scale));
-      const dx=Math.round(x + (w - dw)*0.5);
-      const dy=Math.round(y + h - dh); // “pie” del recorte coincide con base
+      const dw = Math.max(1, Math.round(f.sw * scale));
+      const dh = Math.max(1, Math.round(f.sh * scale));
 
-      // recorte anti-bleed
-      const sx=T.sx+SRC_INSET, sy=T.sy+SRC_INSET;
-      const sw=T.sw-2*SRC_INSET, sh=T.sh-2*SRC_INSET;
-      ctx.drawImage(S.img, sx, sy, sw, sh, dx, dy, dw, dh);
+      // anclaje al pie: y+h coincide con el último píxel opaco
+      const destBottom = Math.round(y + h + (yNudge||0));
+      const destTop    = Math.round(destBottom - (f.footLocal + 1) * scale);
+      const dx         = Math.round(x + (w - dw) * 0.5);
+
+      ctx.drawImage(S.img, f.sx, f.sy, f.sw, f.sh, dx, destTop, dw, dh);
     }
 
-    // ======== Themed background ========
-    const THEMES = [
-      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a' },
-      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21' },
-      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34' }
-    ];
-
-    // ======== Enemy types (igual que el antiguo, pero dibuja PNG) ========
-    const ENEMY_TYPES = [
-      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true },
-      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, shootCooldown:1.3, projectile:'flecha' },
-      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:34, h:50, ground:true },
-      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:20, h:34, ground:true },
-      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true },
-      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true },
-      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:32, h:26, ground:false, flyer:true, shootCooldown:1.5, projectile:'fuego' },
-      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:26, h:26, ground:true, roller:true }
-    ];
-
+    // ===== Projectiles =====
     const PROJ = {
-      piedra: { speed: 660, w: 8, h: 8, color: '#d1d5db', gravity:0, from:'player' },
-      flecha: { speed: 390, w: 12, h: 4, color: '#fcd34d', gravity:0, from:'enemy' },
+      piedra: { speed: 660, w: 8,  h: 8,  color: '#d1d5db', gravity:0, from:'player' },
+      flecha: { speed: 390, w: 12, h: 4,  color: '#fcd34d', gravity:0, from:'enemy' },
       fuego:  { speed: 300, w: 10, h:10, color: '#fb7185', gravity: 520, from:'enemy' }
     };
 
-    // ======== State ========
+    // ===== Enemy catalog (físicas + visual) =====
+    const ENEMY_TYPES = [
+      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true, sheet:'soldado', anim:'walk', fps:8 },
+      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, sheet:'arquero', anim:'walk', fps:8, shootCooldown:1.3, projectile:'flecha' },
+      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:34, h:50, ground:true, sheet:'bruto',   anim:'walk', fps:7 },
+      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:20, h:34, ground:true, sheet:'ladron',  anim:'walk', fps:12 },
+      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true, sheet:'leon',    anim:'walk', fps:10 },
+      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true, sheet:'oso',     anim:'walk', fps:7 },
+      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, ground:false, flyer:true, sheet:'demonio', anim:'fly', fps:6, shootCooldown:1.5, projectile:'fuego' },
+      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true, sheet:'roca', anim:'roll', fps:12 }
+    ];
+
+    // ===== State =====
     let state = 'start';
     let keys = {};
     let cameraX = 0;
 
     let player, stones = [], enemies = [], enemyProjectiles = [];
-    let timeStart = 0, timeNow = 0, elapsed = 0; // seconds
+    let timeStart = 0, timeNow = 0, elapsed = 0;
     let score = 0, paused = false;
-    let spawnTimer = 0, spawnInterval = 1.05; // denser spawn
+    let spawnTimer = 0, spawnInterval = 1.05;
     let maxEnemies = 18;
 
     const groundY = H - 78;
 
-    // ======== Utils ========
+    // ===== Utils =====
     const rnd = (a, b) => a + Math.random() * (b - a);
     const chance = (p) => Math.random() < p;
     const fmtTime = (sec) => { const m = Math.floor(sec / 60); const s = Math.floor(sec % 60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; };
     const getBest = () => +localStorage.getItem('erd_best') || 0;
     const setBest = (v) => localStorage.setItem('erd_best', String(Math.floor(v)));
 
-    function resetGame() {
-      player = { x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h, onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0,
-                 anim:'idle', frame:0, timer:0, rate:0.12 };
-      stones.length = 0; enemies.length = 0; enemyProjectiles.length = 0;
-      score = 0; cameraX = 0; paused = false;
-      timeStart = performance.now(); timeNow = timeStart; elapsed = 0;
-      spawnTimer = 0; spawnInterval = 1.05; maxEnemies = 18;
-    }
-
-    // ======== Background ========
+    // ===== Background =====
     let ashParticles = [];
     function currentTheme() { const idx = Math.floor(elapsed / 60) % THEMES.length; return THEMES[idx]; }
     function drawBackground(dt) {
@@ -311,111 +310,148 @@
     function drawRuins(color, speed, height) {
       const offset = Math.floor((cameraX * speed)) % W;
       ctx.fillStyle = color;
-      for (let i=-1;i<3;i++) { const baseX = i*W - offset; for (let b=0;b<5;b++) { const x = Math.floor(baseX + b*220); const w = Math.floor(80 + (b%3)*10); const h = height + (b%2? -20:20); ctx.fillRect(x, groundY - h, w, h); ctx.clearRect(x+8, groundY - h - 4, w-16, 3); } }
+      for (let i=-1;i<3;i++) {
+        const baseX = i*W - offset;
+        for (let b=0;b<5;b++) {
+          const x = Math.floor(baseX + b*220);
+          const w = Math.floor(80 + (b%3)*10);
+          const h = height + (b%2? -20:20);
+          ctx.fillRect(x, groundY - h, w, h);
+          ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
+        }
+      }
     }
     function drawGround(T) {
       ctx.fillStyle = T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
       ctx.fillStyle = T.dirt2; for (let y=groundY+2; y<H; y+=4) for (let x=(Math.floor(-cameraX)%8); x<W; x+=8) ctx.fillRect(x, y, 2, 2);
-      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) { ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9); ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5); ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1); }
+      for (let x=-((Math.floor(cameraX))%16); x<W; x+=16) {
+        ctx.fillStyle = T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
+        ctx.fillStyle = T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle = T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
     }
 
-    // ======== Rendering con PNGs ========
-    function drawPlayerPNG(p, dt){
-      p.timer += dt;
-      if (p.timer > p.rate){ p.timer=0; p.frame=(p.frame+1)%24; }
-      const frames = PLAYER_SEQ[p.anim] || PLAYER_SEQ.idle;
-      const fid = pickFrame('david', frames, p.frame);
-      const px=(p.x - cameraX)|0, py=p.y|0;
-      // sombra
-      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, p.w+10, 3);
-      drawAnchored('david', fid, px, py, p.w, p.h, 1.0);
-    }
-    function drawEnemyPNG(e, dt){
-      e.anim = e.anim || (e.flyer ? 'idle' : (e.roller ? 'roll' : 'walk'));
-      e.timer=(e.timer||0)+dt;
-      const rate=ENEMY_RATE[e.type] || 0.14;
-      if (e.timer>rate){ e.timer=0; e.frame=(e.frame==null?0:e.frame)+1; }
-      if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3); }
-      const px=(e.x - cameraX)|0, py=e.y|0;
-      const seqMap = ENEMY_SEQ[e.type] || {walk:[0]};
-      const use = seqMap[e.anim] || seqMap.walk || [0];
-      const fid = pickFrame(e.type, use, e.frame||0);
-      const vis = VISUAL[e.type] || {scale:1,y:0};
-      drawAnchored(e.type, fid, px, py + (vis.y||0), e.w, e.h, vis.scale||1);
+    // ===== Anim helpers =====
+    function animIndex(sheet, animName, t, fps){
+      const seq = ANIMS[sheet][animName] || ANIMS[sheet].idle;
+      if (!seq || seq.length===0) return 0;
+      const i = Math.floor(t*fps) % seq.length;
+      return seq[i];
     }
 
-    // ======== Spawning ========
-    function pickEnemyType(timeSec) { const t = timeSec, pool = []; push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2); if (t > 20) { push('bruto', 3); push('leon', 3); } if (t > 35) { push('oso', 2); } if (t > 25) { push('demonio', 3); } function push(k,n){ for(let i=0;i<n;i++) pool.push(k); } const key = pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
+    // ===== Spawning =====
+    function pickEnemyType(timeSec) {
+      const t = timeSec, pool = [];
+      push('soldado', 4); push('ladron', 4); push('arquero', 4); push('roca', 2);
+      if (t > 20) { push('bruto', 3); push('leon', 3); }
+      if (t > 35) { push('oso', 2); }
+      if (t > 25) { push('demonio', 3); }
+      function push(k,n){ for(let i=0;i<n;i++) pool.push(k); }
+      const key = pool[(Math.random()*pool.length)|0];
+      return ENEMY_TYPES.find(e=>e.key===key);
+    }
     function spawnEnemy(timeSec) {
       if (enemies.length > maxEnemies) return;
       const t = pickEnemyType(timeSec);
-      const e = { type:t.key, hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
-                  x: cameraX + W + rnd(20, 220), y: 0, vx: 0, vy: 0, shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t,
-                  phase: rnd(0, Math.PI*2), frame:0, timer:0, anim:null, animHold:0 };
+      const e = {
+        type:t.key, sheet:t.sheet, anim:t.anim, animT:0, fps:t.fps||8,
+        hp:t.hp, speed:t.speed, damage:t.damage, score:t.score,
+        w:t.w, h:t.h, ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
+        x: cameraX + W + rnd(20, 220), y: 0, vx: 0, vy: 0,
+        shootCD: t.shootCooldown || 0, projectile: t.projectile || null, tRef: t, phase: rnd(0, Math.PI*2)
+      };
       e.y = e.ground ? (groundY - e.h) : rnd(120, 260);
       enemies.push(e);
-      if (chance(0.12)) { const extra = 1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({ ...e, x: e.x + 40*(k+1) }); }
+      if (chance(0.12)) { const extra = 1 + (Math.random()*2)|0; for (let k=0;k<extra;k++) enemies.push({ ...e, x: e.x + 40*(k+1), animT: rnd(0,1) }); }
     }
 
-    // ======== Physics & Update ========
+    // ===== Physics & Update =====
     function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+
+    function resetGame() {
+      player = {
+        x: 140, y: groundY - PLAYER.h, vx: 0, vy: 0, w: PLAYER.w, h: PLAYER.h,
+        onGround: true, duck:false, hearts: PLAYER.maxHearts, inv: 0, canShoot: 0,
+        anim:'idle', animT:0, fps:9, facing:1 // 1: derecha
+      };
+      stones.length = 0; enemies.length = 0; enemyProjectiles.length = 0;
+      score = 0; cameraX = 0; paused = false;
+      timeStart = performance.now(); timeNow = timeStart; elapsed = 0;
+      spawnTimer = 0; spawnInterval = 1.05; maxEnemies = 18;
+    }
 
     function update(dt) {
       if (paused) return;
 
       cameraX += (player.x - cameraX - 240) * 0.06;
 
+      // Movimiento player
       const accel = player.onGround ? PLAYER.speed : PLAYER.speed * 0.8;
-      if (keys['ArrowLeft'] || keys['a']) { player.vx = -accel; player.anim='walk'; }
-      if (keys['ArrowRight'] || keys['d']){ player.vx =  accel; player.anim='walk'; }
-      if (!(keys['ArrowLeft']||keys['a']||keys['ArrowRight']||keys['d'])) { player.vx *= player.onGround ? FRICTION : 1; if (player.anim!=='sling') player.anim='idle'; }
+      let moving = false;
+      if (keys['ArrowLeft'] || keys['a']) { player.vx = -accel; player.facing = -1; moving = true; }
+      if (keys['ArrowRight'] || keys['d']){ player.vx =  accel; player.facing =  1; moving = true; }
+      if (!moving) player.vx *= player.onGround ? FRICTION : 1;
+
       if ((keys['ArrowUp']||keys['w']) && player.onGround) { player.vy = -PLAYER.jump; player.onGround = false; }
-
       player.duck = !!(keys['ArrowDown']||keys['s']);
+      player.anim = moving ? 'walk' : 'idle';
 
-      // Disparo
+      // Disparo con honda
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0) {
         stones.push({ x: player.x + player.w, y: player.y + 12, w: PROJ.piedra.w, h: PROJ.piedra.h, vx: PROJ.piedra.speed, vy: 0, color: PROJ.piedra.color, from:'player' });
         player.canShoot = PLAYER.stoneCooldown;
-        player.anim='sling'; player.frame=0; player.timer=0;
+        player.anim = 'shoot'; // breve anim
+        player.animT = 0;
       }
-      if (player.anim==='sling' && player.frame>=6){ player.anim = (Math.abs(player.vx)>40)?'walk':'idle'; }
 
+      player.animT += dt;
       player.vy += GRAVITY * dt; player.x += player.vx * dt; player.y += player.vy * dt;
-      const ph = player.duck ? player.h-10 : player.h; if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; } if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
+      const ph = player.duck ? player.h-10 : player.h;
+      if (player.y + ph >= groundY) { player.y = groundY - ph; player.vy = 0; player.onGround = true; }
+      if (player.y < 60) { player.y = 60; player.vy = Math.max(0, player.vy); }
 
-      for (let i=stones.length-1;i>=0;i--) { const s=stones[i]; s.x += s.vx*dt; s.y += s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
+      // Proyectiles jugador
+      for (let i=stones.length-1;i>=0;i--) {
+        const s=stones[i]; s.x += s.vx*dt; s.y += s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1);
+      }
 
-      spawnTimer -= dt; if (spawnTimer <= 0) { spawnEnemy(elapsed); spawnInterval = Math.max(0.65, spawnInterval - 0.0045); spawnTimer = spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies = 24; }
+      // Spawns
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        spawnEnemy(elapsed);
+        spawnInterval = Math.max(0.65, spawnInterval - 0.0045);
+        spawnTimer = spawnInterval + (Math.random()*0.3 - 0.15);
+        if (elapsed>90 && maxEnemies<24) maxEnemies = 24;
+      }
 
-      for (let i=enemies.length-1;i>=0;i--){
+      // Enemigos
+      for (let i=enemies.length-1;i>=0;i--) {
         const e = enemies[i];
-        if (e.flyer){ e.vx = -e.speed; e.vy = Math.sin((elapsed + e.phase) * 2.0) * 20; e.y += e.vy * dt; e.anim=(e.animHold>0?'atk':'idle'); }
-        else if (e.roller){ e.vx = -e.speed; e.anim='roll'; }
-        else { e.vx = -e.speed + (e.type==='ladron' ? -50 : 0); e.anim=(e.animHold>0?'atk':'walk'); }
-
+        if (e.flyer) { e.vx = -e.speed; e.vy = Math.sin((elapsed + e.phase) * 2.0) * 20; e.y += e.vy * dt; }
+        else if (e.roller) { e.vx = -e.speed; }
+        else { e.vx = -e.speed + (e.type==='ladron' ? -50 : 0); }
         e.x += e.vx * dt;
         if (e.ground) { if (e.y + e.h < groundY) e.y += GRAVITY*dt; if (e.y + e.h > groundY) e.y = groundY - e.h; }
-        if (e.animHold>0) e.animHold-=dt;
 
+        // Disparo enemigo
         if (e.projectile && (e.shootCD !== undefined)) {
           e.shootCD -= dt;
           if (e.shootCD <= 0 && e.x - cameraX < W && e.x - cameraX > 100) {
-            if (e.projectile === 'flecha'){
+            if (e.projectile === 'flecha')
               enemyProjectiles.push({ x: e.x, y: e.y + 8, w: PROJ.flecha.w, h: PROJ.flecha.h, vx: -PROJ.flecha.speed, vy: 0, color: PROJ.flecha.color, from:'enemy' });
-              e.shootCD = (e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-              e.anim='atk'; e.frame=0; e.animHold=0.35;
-            } else if (e.projectile === 'fuego'){
+            else if (e.projectile === 'fuego')
               enemyProjectiles.push({ x: e.x, y: e.y + 10, w: PROJ.fuego.w, h: PROJ.fuego.h, vx: -80 - Math.random()*60, vy: 100 + Math.random()*60, color: PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
-              e.shootCD = (e.tRef.shootCooldown||1.5) + (Math.random()*0.5);
-              e.anim='atk'; e.frame=0; e.animHold=0.40;
-            }
+            e.shootCD = (e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
+            if (e.sheet==='demonio') { e.anim='fire'; e.animT=0; }
           }
         }
+
+        e.animT += dt;
         if (e.x + e.w < cameraX - 40) { enemies.splice(i,1); continue; }
       }
 
+      // Proyectiles enemigos
       for (let i=enemyProjectiles.length-1;i>=0;i--) {
         const p = enemyProjectiles[i];
         p.vy += (p.gravity||0)*dt; p.x += p.vx*dt; p.y += p.vy*dt;
@@ -423,42 +459,74 @@
         if (p.x + p.w < cameraX - 40) { enemyProjectiles.splice(i,1); continue; }
       }
 
+      // Colisiones piedra→enemigo
       for (let i=enemies.length-1;i>=0;i--) {
         const e = enemies[i];
         for (let j=stones.length-1;j>=0;j--) {
           const s = stones[j];
-          if (rectsOverlap(e, s)) { e.hp -= 1; stones.splice(j,1); score += 5; if (e.hp <= 0) { score += e.score; enemies.splice(i,1); break; } }
+          if (rectsOverlap(e, s)) {
+            e.hp -= 1; stones.splice(j,1); score += 5;
+            if (e.hp <= 0) { score += e.score; enemies.splice(i,1); break; }
+          }
         }
       }
 
+      // Daño al jugador (ahora coincide con lo que se ve)
       if (player.inv > 0) player.inv -= dt; if (player.inv < 0) player.inv = 0;
       const pHit = { x: player.x, y: player.y + (player.duck?10:0), w: player.w, h: player.duck?player.h-10:player.h };
       for (let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
       for (let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
 
-      timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000; hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`; hudScore.textContent = `Puntos: ${score}`;
+      timeNow = performance.now(); elapsed = (timeNow - timeStart) / 1000;
+      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
+      hudScore.textContent = `Puntos: ${score}`;
     }
 
     function damagePlayer(dmg) { player.hearts = Math.max(0, player.hearts - dmg); player.inv = PLAYER.invTime; if (player.hearts <= 0) gameOver(); updateHearts(); }
     function updateHearts() { const hearts = '❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent = `Vida: ${hearts}`; }
 
-    // ======== Draw ========
+    // ===== Render =====
+    function drawPlayer() {
+      const sheet='david';
+      // elegir anim real
+      let animName = player.anim;
+      if (animName==='shoot' && player.animT>0.35) animName = (Math.abs(player.vx)>1? 'walk':'idle'); // corta anim de tiro
+      const idx = animIndex(sheet, animName, player.animT, player.fps);
+      const px=(player.x - cameraX)|0, py=player.y|0;
+      // sombra
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
+      drawTrimmed(sheet, idx, px, py, player.w, player.h, 1, 0);
+    }
+    function drawEnemy(e) {
+      // sombra en ground
+      if (!e.flyer && !e.roller){
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        ctx.fillRect((e.x - cameraX - 4)|0, groundY-4, (e.w+8)|0, 3);
+      }
+      let animName = e.anim;
+      if (e.sheet==='demonio' && animName==='fire' && e.animT>0.3) animName='fly';
+      const idx = animIndex(e.sheet, animName, e.animT, e.fps||8);
+      drawTrimmed(e.sheet, idx, (e.x - cameraX)|0, e.y|0, e.w, e.h, 1, 0);
+    }
     function render(dt) {
       drawBackground(dt);
-      stones.forEach(p=>{ const x=(p.x-cameraX)|0, y=p.y|0; ctx.fillStyle=p.color; ctx.fillRect(x,y,p.w,p.h); });
-      enemies.forEach(e=>drawEnemyPNG(e, dt));
-      enemyProjectiles.forEach(p=>{ const x=(p.x-cameraX)|0, y=p.y|0; ctx.fillStyle=p.color; ctx.fillRect(x,y,p.w,p.h); });
-      drawPlayerPNG(player, dt);
+      // proyectiles jugador
+      stones.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect((s.x - cameraX)|0, s.y|0, s.w, s.h); });
+      // enemigos
+      enemies.forEach(drawEnemy);
+      // proyectiles enemigos
+      enemyProjectiles.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect((p.x - cameraX)|0, p.y|0, p.w, p.h); });
+      // player
+      drawPlayer();
 
-      // aviso sprites
       if (!SPRITES_READY){
-        ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(8,8,460,40);
-        ctx.fillStyle='#fde68a'; ctx.font='12px monospace';
+        ctx.fillStyle='rgba(0,0,0,.65)'; ctx.fillRect(8,8,240,42);
+        ctx.fillStyle='#fde68a'; ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
         ctx.fillText('Cargando sprites…', 16, 32);
       }
     }
 
-    // ======== Loop ========
+    // ===== Loop =====
     let last = 0;
     function loop(ts) {
       const now = ts || performance.now();
@@ -468,34 +536,42 @@
       requestAnimationFrame(loop);
     }
 
-    // ======== Game Flow & Audio ========
+    // ===== Game Flow & Audio =====
     function startGame() {
-      state = 'play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); resetGame(); updateHearts();
+      state = 'play';
+      startOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+      resetGame(); updateHearts();
+
       try { bgmLobby.pause(); } catch (e) {}
       try { bgmGame.currentTime = 0; bgmGame.volume = 0.45; bgmGame.play().catch(()=>{}); } catch (e) {}
       try { bgmLose.pause(); bgmLose.currentTime = 0; } catch (e) {}
       window.focus();
     }
     function gameOver() {
-      state = 'gameover'; const best = getBest(); if (elapsed > best) setBest(elapsed); timeSurvivedEl.textContent = fmtTime(elapsed); bestTimeEl.textContent = fmtTime(getBest()); gameOverOverlay.classList.remove('hidden');
-      try { bgmGame.pause(); } catch (e) {} try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
+      state = 'gameover';
+      const best = getBest(); if (elapsed > best) setBest(elapsed);
+      timeSurvivedEl.textContent = fmtTime(elapsed);
+      bestTimeEl.textContent = fmtTime(getBest());
+      gameOverOverlay.classList.remove('hidden');
+
+      try { bgmGame.pause(); } catch (e) {}
+      try { bgmLose.currentTime = 0; bgmLose.volume = 0.6; bgmLose.play().catch(()=>{}); } catch (e) {}
     }
 
-    // ======== Pausa (también pausa/reanuda música) ========
-    function togglePause(){
-      if (state!=='play') return;
-      paused = !paused;
-      try{
-        if (paused) bgmGame.pause();
-        else if (bgmGame.paused) bgmGame.play().catch(()=>{});
-      }catch(e){}
-    }
-
-    // ======== Input & Boot ========
+    // ===== Input =====
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') e.preventDefault();
       keys[e.key] = true;
-      if ((e.key === 'p' || e.key === 'P')) togglePause();
+
+      if ((e.key === 'p' || e.key === 'P') && state==='play') {
+        paused = !paused;
+        // Pausa/reanuda música del juego para que coincida con el estado
+        try {
+          if (paused) bgmGame.pause();
+          else bgmGame.play().catch(()=>{});
+        } catch(e){}
+      }
       if (e.key === 'i' || e.key === 'I') controlsPanel.classList.toggle('hidden');
     });
     window.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -503,23 +579,23 @@
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
 
-    // Best time
+    // Mejores tiempos
     bestStart.textContent = fmtTime(getBest());
 
-    // Autoplay-friendly: música lobby
+    // Música lobby con gestos de usuario
     let triedLobby = false;
     function ensureLobbyPlay(){
       if (state !== 'start' || triedLobby) return;
       triedLobby = true;
       try { bgmLobby.volume = 0.55; bgmLobby.currentTime = 0; const p = bgmLobby.play(); if (p && p.catch) p.catch(()=>{ triedLobby = false; }); } catch (e) { triedLobby = false; }
     }
-    window.addEventListener('pointerdown', ensureLobbyPlay);
-    window.addEventListener('keydown', ensureLobbyPlay);
-    window.addEventListener('touchstart', ensureLobbyPlay);
-    window.addEventListener('pointermove', ensureLobbyPlay);
+    window.addEventListener('pointerdown', ensureLobbyPlay, { once:false });
+    window.addEventListener('keydown', ensureLobbyPlay, { once:false });
+    window.addEventListener('touchstart', ensureLobbyPlay, { once:false });
+    window.addEventListener('pointermove', ensureLobbyPlay, { once:false });
     btnStart.addEventListener('pointerenter', ensureLobbyPlay);
 
-    // Begin loop
+    // Boot loop
     requestAnimationFrame((ts)=>{ last = ts; loop(ts); });
   })();
   </script>
