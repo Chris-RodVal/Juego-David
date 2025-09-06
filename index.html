@@ -21,14 +21,27 @@
       background: #12070b; display: block;
     }
 
+    /* HUD arriba-izquierda */
     .hud {
-      position: fixed; left: 50%; top: 8px; transform: translateX(-50%);
-      width: min(1200px, 96vw); display: flex; flex-wrap: wrap;
-      justify-content: space-between; align-items: center; gap: 10px;
-      font-size: 14px; opacity: .95; user-select: none; z-index: 5;
+      position: fixed; left: 10px; top: 8px;
+      width: auto; max-width: 50vw;
+      display: flex; flex-wrap: wrap;
+      justify-content: flex-start; align-items: center; gap: 8px 10px;
+      font-size: 14px; opacity: .95; user-select: none; z-index: 8;
     }
     .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
 
+    /* Panel de instrucciones arriba-derecha (ocultable con I) */
+    .controls-panel {
+      position: fixed; right: 10px; top: 8px; width: 320px;
+      background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px;
+      padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; z-index: 9;
+    }
+    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
+    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
+    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+
+    /* Overlays centrados */
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 6; }
     .panel { pointer-events: auto; width: 760px; max-width: 92vw;
       background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96));
@@ -44,17 +57,8 @@
     .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
     .hidden { display: none; }
 
-    .controls-panel {
-      position: fixed; left: 10px; bottom: 10px; width: 320px;
-      background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px;
-      padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; z-index: 7;
-    }
-    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
-    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
-    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
-
     @media (max-width: 980px) {
-      .controls-panel { width: calc(100vw - 24px); left: 12px; right: 12px; }
+      .controls-panel { width: calc(100vw - 24px); right: 12px; left: 12px; }
     }
   </style>
 </head>
@@ -78,7 +82,7 @@
           <li>H : Tocar <b>harpa</b> (purga demonios)</li>
           <li>P : Pausar · I : Mostrar/Ocultar ayuda</li>
         </ul>
-        <div class="hint">Pan se guarda en inventario. Come con <b>E</b>.</div>
+        <div class="hint">Panel ocultable con <b>I</b>. Al iniciar se intentará <b>pantalla completa</b>.</div>
       </div>
 
       <div id="startOverlay" class="overlay">
@@ -88,7 +92,6 @@
           <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
           <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
           <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, <b>G</b>, <b>E</b>, <b>H</b>, P, I</div>
-          <div class="muted" style="margin-top:6px">Se intentará abrir en <b>pantalla completa</b> al iniciar.</div>
         </div>
       </div>
 
@@ -106,7 +109,6 @@
       <div class="tag" id="hudTime">Tiempo: 00:00</div>
       <div class="tag" id="hudScore">Puntos: 0</div>
       <div class="tag" id="hudItems">Pan: 0 · Panales: 0 · Harpa: —</div>
-      <div class="tag" id="hudHint" style="opacity:.85">ESPACIO: honda · G: panal · <b>E: comer pan</b> · H: harpa · I: ayuda</div>
     </div>
   </div>
 
@@ -136,7 +138,7 @@
     const bgmGame  = document.getElementById('bgmGame');
     const bgmLose  = document.getElementById('bgmLose');
 
-    // ===== Constantes =====
+    // ===== Canvas DPR/Resize =====
     let W = 960, H = 540, groundY = H - 78;
     const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     function resizeCanvas() {
@@ -146,7 +148,7 @@
       canvas.style.height = cssH + 'px';
       canvas.width  = cssW * DPR;
       canvas.height = cssH * DPR;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // 1 unidad lógica = 1 px CSS
       ctx.imageSmoothingEnabled = false;
       W = cssW; H = cssH;
       groundY = H - 78;
@@ -154,10 +156,10 @@
     window.addEventListener('resize', resizeCanvas, { passive:true });
     resizeCanvas();
 
+    // ===== Constantes =====
     const GRAVITY = 2400, FRICTION = 0.85;
-    // AUMENTO CADENCIA HONDA -> stoneCooldown: 0.18
+    // Cadencia de la honda aumentada
     const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.18 };
-
     const THEMES = [
       { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#402b2b' },
       { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3f3321' },
@@ -188,40 +190,34 @@
       demonio:{fly:[0,1], fire:[2,3], idle:[0]}
     };
 
-    // ===== Carga + recorte (anti-sangrado) =====
+    // ===== Carga + recorte a canvas por frame (anti-sangrado/cinta) =====
     const Sheets={}; let SPRITES_READY=false;
-    const ALPHA_THRESHOLD=160;
-    const SCAN_MARGIN_X=2, SCAN_MARGIN_Y=1;
-
+    const PAD_SRC=1; // margen interno por celda
     function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
     function buildGridWithTrim(key,img){
       const {cols,rows}=GRID[key];
       const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
-      const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
-      const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.drawImage(img,0,0);
-      const data=tg.getImageData(0,0,tmp.width,tmp.height).data;
 
-      function cell(c,r){
-        const sx0=c*fw, sy0=r*fh;
-        let minX=fw, minY=fh, maxX=-1, maxY=-1;
-        const xStart=sx0+SCAN_MARGIN_X, xEnd=sx0+fw-SCAN_MARGIN_X;
-        const yStart=sy0+SCAN_MARGIN_Y, yEnd=sy0+fh-SCAN_MARGIN_Y;
-        for(let y=yStart;y<yEnd;y++){
-          for(let x=xStart;x<xEnd;x++){
-            const a=data[(y*tmp.width + x)*4 + 3];
-            if(a>ALPHA_THRESHOLD){
-              if(x-sx0<minX)minX=x-sx0;
-              if(y-sy0<minY)minY=y-sy0;
-              if(x-sx0>maxX)maxX=x-sx0;
-              if(y-sy0>maxY)maxY=y-sy0;
-            }
-          }
+      const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
+      const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.imageSmoothingEnabled=false; tg.drawImage(img,0,0);
+
+      const frames=[];
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const sx0=c*fw, sy0=r*fh;
+          const sx=Math.max(0, sx0+PAD_SRC);
+          const sy=Math.max(0, sy0+PAD_SRC);
+          const sw=Math.max(1, Math.min(fw-PAD_SRC*2, img.naturalWidth - sx));
+          const sh=Math.max(1, Math.min(fh-PAD_SRC*2, img.naturalHeight - sy));
+
+          const fc=document.createElement('canvas');
+          fc.width=sw; fc.height=sh;
+          const fctx=fc.getContext('2d'); fctx.imageSmoothingEnabled=false;
+          fctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+          frames.push({ sw, sh, footLocal:sh-1, canvas:fc });
         }
-        if(maxX<0||maxY<0) return { sx:sx0, sy:sy0, sw:fw, sh:fh, footLocal:fh-1, empty:true };
-        const sw=maxX-minX+1, sh=maxY-minY+1;
-        return { sx:sx0+minX, sy:sy0+minY, sw, sh, footLocal:sh-1, empty:false };
       }
-      const frames=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cell(c,r));
       Sheets[key]={ img, fw, fh, cols, rows, total:frames.length, frames };
     }
     (async()=>{ try{ for(const [k,src] of Object.entries(SOURCES)){ const im=await loadImage(src); buildGridWithTrim(k,im); } SPRITES_READY=true; }catch(e){ console.error('Sprites:',e); } })();
@@ -230,13 +226,16 @@
     function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
       const S=Sheets[sheetKey]; if(!S) return;
       const f=S.frames[Math.max(0,Math.min(frameIdx|0,S.total-1))];
+      const src=f.canvas;
+
       const base=Math.min(w/f.sw,h/f.sh)*SPRITE_SCALE*(scaleMul||1);
       const scale=Math.max(0.25,Math.round(base*4)/4);
       const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
       const destBottom=Math.round(y+h+(yNudge||0));
       const destTop=Math.round(destBottom - (f.footLocal+1)*scale);
       const dx=Math.round(x+(w-dw)*0.5);
-      ctx.drawImage(S.img,f.sx|0,f.sy|0,f.sw|0,f.sh|0,dx|0,destTop|0,dw|0,dh|0);
+
+      ctx.drawImage(src, 0, 0, f.sw|0, f.sh|0, dx|0, destTop|0, dw|0, dh|0);
     }
     function animIndex(sheet, anim, t, fps){
       const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0];
@@ -267,10 +266,10 @@
 
     // Pickups e inventario
     let pickups=[];               // {type:'bread'|'hive'|'harp', x,y,w,h}
-    let breadTimer=30;            // s
-    let hiveTimer=45;             // s
-    let harpTimer=50;             // s
-    let beeBombs=[];              // {x,y,w,h,vx,vy,gravity}
+    let breadTimer=20;            // pan 20s
+    let hiveTimer=20;             // panal 20s
+    let harpTimer=22;             // harpa 22s
+    let beeBombs=[];              // granadas
     let beeExplosions=[];         // efectos
     let harpPulse=[];             // efecto visual de harpa
 
@@ -380,7 +379,7 @@
       score=0; cameraX=0; paused=false;
       timeStart=performance.now(); timeNow=timeStart; elapsed=0;
       spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
-      breadTimer=30; hiveTimer=45; harpTimer=50;
+      breadTimer=20; hiveTimer=20; harpTimer=22;
       updateHUDItems(); updateHearts();
     }
 
@@ -398,7 +397,7 @@
       if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
       player.duck=!!(keys['ArrowDown']||keys['s']);
 
-      // Disparo (honda) - más cadencia
+      // Disparo (honda) - mayor cadencia
       player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
       if (keys[' '] && player.canShoot===0){
         stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
@@ -438,14 +437,14 @@
       // Piedras
       for(let i=stones.length-1;i>=0;i--){ const s=stones[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; if (s.x - cameraX > W+60) stones.splice(i,1); }
 
-      // Spawns
+      // Spawns de enemigos
       spawnTimer -= dt;
       if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
 
-      // Pickups spawn
-      breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 30 + rnd(-5,5); }
-      hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 45 + rnd(-7,7); }
-      harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 50 + rnd(-7,7); }
+      // Spawns de pickups (20/20/22 con aleatorio ligero)
+      breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 20 + rnd(-4,4); }
+      hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 20 + rnd(-4,4); }
+      harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 22 + rnd(-4,4); }
 
       // Enemigos
       for(let i=enemies.length-1;i>=0;i--){
@@ -456,6 +455,7 @@
         e.x+=e.vx*dt;
         if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
 
+        // Disparo enemigo
         if (e.projectile && (e.shootCD!==undefined)){
           e.shootCD -= dt;
           if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
@@ -522,6 +522,7 @@
       for(let i=enemies.length-1;i>=0;i--) if (rectsOverlap(pHit, enemies[i])) { if (player.inv===0) damagePlayer(enemies[i].damage); }
       for(let i=enemyProjectiles.length-1;i>=0;i--) if (rectsOverlap(pHit, enemyProjectiles[i])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(i,1); }
 
+      // HUD
       timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
       hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
       hudScore.textContent = `Puntos: ${score}`;
@@ -629,6 +630,7 @@
         }
       });
 
+      // Ondas de harpa
       harpPulse.forEach(hp=>{
         const k = hp.t/hp.dur;
         const R = 40 + 340*k;
@@ -706,6 +708,7 @@
 
     bestStart.textContent = fmtTime(+localStorage.getItem('erd_best')||0);
 
+    // Música lobby con gesto
     let triedLobby=false;
     function ensureLobbyPlay(){
       if (state!=='start'||triedLobby) return;
