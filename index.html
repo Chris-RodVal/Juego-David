@@ -1,654 +1,600 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>El Reino de David: Escape del Valle</title>
-  <style>
-    :root { color-scheme: dark; }
-    html, body { height: 100%; margin: 0; }
-    body {
-      background: radial-gradient(1200px 600px at 50% -200px, #2a0f16 0%, #1a0b10 55%, #0a0a10 100%);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-      color: #e5e7eb;
-    }
-    .wrap { max-width: 1200px; margin: 14px auto; padding: 8px 12px; display: grid; place-items: center; gap: 10px; }
-    .stage { position: relative; width: 960px; height: 540px; }
-    canvas#game {
-      width: 960px; height: 540px; image-rendering: pixelated; image-rendering: crisp-edges;
-      background: #12070b; display: block; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
-    }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El Reino de David: Escape del Valle</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(1200px 600px at 50% -200px, #2a0f16 0%, #1a0b10 55%, #0a0a10 100%);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+      color: #e5e7eb;
+    }
+    .wrap { max-width: 1300px; margin: 14px auto; padding: 8px 12px; display: grid; place-items: center; gap: 10px; }
+    .stage { position: relative; width: 1280px; height: 720px; }
+    canvas#game {
+      width: 1280px; height: 720px; image-rendering: pixelated; image-rendering: crisp-edges;
+      background: #12070b; display: block; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    }
 
-    .hud { width: 960px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
-    .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
+    .hud { width: 1280px; max-width: 96vw; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; opacity: .95; user-select: none; }
+    .hud .tag { background: #0f172a; border: 1px solid #1f2937; padding: 2px 8px; border-radius: 8px; }
 
-    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-    .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
-    h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
-    .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
-    .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-    button.pixel { appearance: none; border: 0; cursor: pointer; font-weight: 600; padding: 10px 16px; border-radius: 12px; font-size: 14px; background: linear-gradient(180deg,#7f1d1d,#450a0a); border: 1px solid #7f1d1d; color: #fde68a; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.25); transition: transform .05s ease, box-shadow .2s ease; }
-    button.pixel:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.35); }
-    button.pixel:active { transform: translateY(1px); }
-    .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
-    .hidden { display: none; }
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .panel { pointer-events: auto; width: 760px; max-width: 92vw; background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(7,11,20,.96)); border: 1px solid #1f2937; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+    h1.title { margin: 8px 0 10px; font-size: clamp(28px, 6vw, 42px); letter-spacing: .5px; color: #fde68a; text-shadow: 0 0 18px rgba(239,68,68,.26); }
+    .subtitle { opacity: .9; margin-bottom: 16px; font-size: 15px; color: #cbd5e1; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    button.pixel { appearance: none; border: 0; cursor: pointer; font-weight: 600; padding: 10px 16px; border-radius: 12px; font-size: 14px; background: linear-gradient(180deg,#7f1d1d,#450a0a); border: 1px solid #7f1d1d; color: #fde68a; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.25); transition: transform .05s ease, box-shadow .2s ease; }
+    button.pixel:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 18px rgba(0,0,0,.35); }
+    button.pixel:active { transform: translateY(1px); }
+    .muted { color: #9aa6b2; font-size: 13px; margin-top: 8px; }
+    .hidden { display: none; }
 
-    /* Panel a la derecha */
-    .controls-panel { position: absolute; right: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
-    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
-    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
-    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+    /* Panel a la derecha */
+    .controls-panel { position: absolute; right: 10px; top: 10px; width: 280px; background: rgba(9,14,22,.82); border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); pointer-events: auto; }
+    .controls-panel h3 { margin: 0 0 8px; font-size: 14px; color: #f8fafc; }
+    .controls-panel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; }
+    .controls-panel .hint { margin-top: 8px; font-size: 12px; color: #94a3b8; }
 
-    @media (max-width: 980px) {
-      canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
-      .hud { width: 96vw; }
-      .controls-panel { right: auto; left: 10px; }
-    }
-  </style>
+    @media (max-width: 1300px) {
+      canvas#game, .stage { width: 96vw; height: calc(96vw * 9 / 16); }
+      .hud { width: 96vw; }
+      .controls-panel { right: auto; left: 10px; }
+    }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="stage">
-      <!-- Música -->
-      <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
-      <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
-      <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
-
-      <canvas id="game" width="960" height="540"></canvas>
-
-      <div id="controlsPanel" class="controls-panel">
-        <h3>Controles</h3>
-        <ul>
-          <li>← / → : Mover</li>
-          <li>↑ : Saltar · ↓ : Agacharse</li>
-          <li>ESPACIO : Honda (más rápida)</li>
-          <li>G : Lanzar panal (granada, mata 6)</li>
-          <li>E : Comer pan (+1 corazón si tienes)</li>
-          <li>H : Tocar harpa (los demonios desaparecen)</li>
-          <li>P : Pausar · I : Mostrar/Ocultar ayuda</li>
-        </ul>
-        <div class="hint">Novedad: aparecen Pan (20s), Panales (20s) y Harpa (22s).</div>
-      </div>
-
-      <div id="startOverlay" class="overlay">
-        <div class="panel">
-          <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
-          <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
-          <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
-          <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
-          <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, G, E, H, P, I</div>
-        </div>
-      </div>
-
-      <div id="gameOverOverlay" class="overlay hidden">
-        <div class="panel">
-          <h1 class="title">El valle te ha reclamado…</h1>
-          <div class="subtitle">Tiempo sobrevivido: <span id="timeSurvived">00:00</span> · Record: <span id="bestTime">00:00</span></div>
-          <div class="btns"><button id="btnRestart" class="pixel">Reiniciar</button></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hud" id="hud">
-      <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤❤</div>
-      <div class="tag" id="hudTime">Tiempo: 00:00</div>
-      <div class="tag" id="hudScore">Puntos: 0</div>
-      <div class="tag" id="hudItems">Pan: 0 · Panales: 0 · Harpa: —</div>
-    </div>
-  </div>
-
-  <script>
-  (() => {
-    // ===== Canvas / UI / Audio =====
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d', { alpha:true });
-    ctx.imageSmoothingEnabled = false;
-
-    const startOverlay   = document.getElementById('startOverlay');
-    const gameOverOverlay= document.getElementById('gameOverOverlay');
-    const btnStart       = document.getElementById('btnStart');
-    const btnRestart     = document.getElementById('btnRestart');
-    const bestStart      = document.getElementById('bestStart');
-    const bestTimeEl     = document.getElementById('bestTime');
-    const timeSurvivedEl = document.getElementById('timeSurvived');
-
-    const hudHealth = document.getElementById('hudHealth');
-    const hudTime   = document.getElementById('hudTime');
-    const hudScore  = document.getElementById('hudScore');
-    const hudItems  = document.getElementById('hudItems');
-
-    const controlsPanel = document.getElementById('controlsPanel');
-    const bgmLobby = document.getElementById('bgmLobby');
-    const bgmGame  = document.getElementById('bgmGame');
-    const bgmLose  = document.getElementById('bgmLose');
-
-    // ===== Constantes =====
-    const W = canvas.width, H = canvas.height;
-    const i = (v)=>v|0; // enteros: evita “doble” horizontal
-    const GRAVITY = 2400, FRICTION = 0.85;
-    // honda más rápida
-    const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.18 };
-    const groundY = H - 78;
-
-    // ===== Temas de fondo =====
-    const THEMES = [
-      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#3a2424' },
-      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3b2f1f' },
-      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34', house:'#203236' }
-    ];
-    const currentTheme = (t)=>THEMES[Math.floor(t/60)%THEMES.length];
-
-    // ===== Sprites =====
-    const SOURCES = {
-      david:"David.png", soldado:"Soldado_basico.png", arquero:"Arquero.png",
-      bruto:"Bruto.png", ladron:"Ladron.png", leon:"Leon.png",
-      oso:"Oso.png", demonio:"Demonio.png", roca:"Roca.png"
-    };
-    const GRID = {
-      david:{cols:5,rows:2}, soldado:{cols:4,rows:1}, arquero:{cols:6,rows:1},
-      bruto:{cols:6,rows:1}, ladron:{cols:6,rows:1}, leon:{cols:5,rows:1},
-      oso:{cols:5,rows:1}, demonio:{cols:2,rows:2}, roca:{cols:4,rows:1},
-    };
-    const ANIMS = {
-      david:{walk:[0,1,2,3,4], shoot:[5,6,7,8,9], idle:[0]},
-      soldado:{walk:[0,1,2,3], idle:[0]},
-      arquero:{walk:[0,1,2,3,4,5], idle:[3]},
-      bruto:{walk:[0,1,2,3,4,5], idle:[2]},
-      ladron:{walk:[0,1,2,3,4,5], idle:[0]},
-      leon:{walk:[0,1,2,3,4], idle:[2]},
-      oso:{walk:[0,1,2,3,4], idle:[2]},
-      roca:{roll:[0,1,2,3]},
-      demonio:{fly:[0,1], fire:[2,3], idle:[0]}
-    };
-
-    const Sheets={}; let SPRITES_READY=false; const ALPHA_THRESHOLD=24, PAD_SRC=1;
-    function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
-    function buildGridWithTrim(key,img){
-      const {cols,rows}=GRID[key]; const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
-      const tmp=document.createElement('canvas'); tmp.width=img.naturalWidth; tmp.height=img.naturalHeight;
-      const tg=tmp.getContext('2d',{willReadFrequently:true}); tg.imageSmoothingEnabled=false; tg.drawImage(img,0,0);
-      const data=tg.getImageData(0,0,tmp.width,tmp.height).data;
-      function cell(c,r){
-        const sx0=c*fw, sy0=r*fh; let minX=fw,minY=fh,maxX=-1,maxY=-1;
-        for(let y=PAD_SRC;y<fh-PAD_SRC;y++){
-          const gy=sy0+y; for(let x=PAD_SRC;x<fw-PAD_SRC;x++){
-            const gx=sx0+x; const a=data[(gy*tmp.width+gx)*4+3];
-            if(a>ALPHA_THRESHOLD){ if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }
-          }
-        }
-        if(maxX<0||maxY<0) return {sx:sx0,sy:sy0,sw:fw,sh:fh,footLocal:fh-1,empty:true};
-        const sw=maxX-minX+1, sh=maxY-minY+1, footLocal=(maxY-minY);
-        return {sx:sx0+minX,sy:sy0+minY,sw,sh,footLocal,empty:false};
-      }
-      const frames=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push(cell(c,r));
-      Sheets[key]={img,fw,fh,cols,rows,total:frames.length,frames};
-    }
-    (async()=>{ try{ for(const [k,src] of Object.entries(SOURCES)){ const im=await loadImage(src); buildGridWithTrim(k,im); } SPRITES_READY=true; }catch(e){ console.error('Sprites:',e); } })();
-
-    const SPRITE_SCALE=0.64;
-    function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
-      const S=Sheets[sheetKey]; if(!S) return;
-      const f=S.frames[Math.max(0,Math.min(frameIdx|0,S.total-1))];
-      const base=Math.min(w/f.sw, h/f.sh)*SPRITE_SCALE*(scaleMul||1);
-      const scale=Math.max(0.25, Math.round(base*4)/4);
-      const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
-      const destBottom=i(y + h + (yNudge||0));
-      const destTop=i(destBottom - (f.footLocal+1)*scale);
-      const dx=i(x + (w - dw)*0.5);
-      ctx.drawImage(S.img, f.sx,f.sy,f.sw,f.sh, dx,destTop, dw,dh);
-    }
-
-    // ===== Entidades / Proyectiles =====
-    const PROJ = {
-      piedra:{speed:660,w:8,h:8,color:'#d1d5db',gravity:0,from:'player'},
-      flecha:{speed:390,w:12,h:4,color:'#fcd34d',gravity:0,from:'enemy'},
-      fuego:{speed:300,w:10,h:10,color:'#fb7185',gravity:520,from:'enemy'}
-    };
-    const ENEMY_TYPES=[
-      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true, sheet:'soldado', anim:'walk', fps:8 },
-      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, sheet:'arquero', anim:'walk', fps:8, shootCooldown:1.3, projectile:'flecha' },
-      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:34, h:50, ground:true, sheet:'bruto',   anim:'walk', fps:7 },
-      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:20, h:34, ground:true, sheet:'ladron',  anim:'walk', fps:12 },
-      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true, sheet:'leon',    anim:'walk', fps:10 },
-      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true, sheet:'oso',     anim:'walk', fps:7 },
-      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, flyer:true, ground:false, sheet:'demonio', anim:'fly', fps:6, shootCooldown:1.5, projectile:'fuego' },
-      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true, sheet:'roca', anim:'roll', fps:12 }
-    ];
-
-    // ===== Estado =====
-    let state='start', keys={}, cameraX=0;
-    let player, stones=[], enemies=[], enemyProjectiles=[];
-    let timeStart=0, timeNow=0, elapsed=0, score=0, paused=false;
-    let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
-
-    // Pickups e ítems
-    let pickups=[]; // {type:'bread'|'hive'|'harp', x,y,w,h}
-    let breadTimer=20, hiveTimer=20, harpTimer=22;
-    let beeBombs=[], beeExplosions=[], harpPulse=[];
-
-    // ===== Utils =====
-    const rnd=(a,b)=>a+Math.random()*(b-a);
-    const chance=p=>Math.random()<p;
-    const fmtTime=sec=>{const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;};
-    const getBest=()=>+localStorage.getItem('erd_best')||0;
-    const setBest=v=>localStorage.setItem('erd_best', String(Math.floor(v)));
-    function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-
-    // ===== Fondo con más detalle =====
-    let ashParticles=[], clouds=[];
-    function ensureClouds(){ if (clouds.length<8) clouds.push({ x:rnd(-100,W+200), y:rnd(30,140), w:rnd(90,200), h:rnd(20,36), s:rnd(8,16)/10 }); }
-
-    function drawBackground(dt){
-      const T=currentTheme(elapsed);
-      const g=ctx.createLinearGradient(0,0,0,H);
-      g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
-      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-
-      // nubes
-      ensureClouds();
-      ctx.fillStyle='rgba(250,250,255,.16)';
-      for (const c of clouds){
-        c.x -= c.s*dt*30; if (c.x + c.w < -60){ c.x = W + rnd(20,200); c.y = rnd(30,140); }
-        ctx.fillRect(i(c.x - cameraX*0.08), i(c.y), i(c.w), i(c.h));
-        ctx.clearRect(i(c.x - cameraX*0.08)+8, i(c.y)+2, i(c.w)-16, 2);
-      }
-
-      // brillo bajo
-      ctx.fillStyle=T.glow; ctx.fillRect(0,H-160,W,160);
-
-      // ruinas y casitas
-      drawRuins(T.ruin,0.16,220); drawHouses(T.house,0.22,160);
-      drawRuins(T.ruin,0.28,160); drawHouses(T.house,0.35,120);
-
-      // ceniza
-      if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
-      ctx.fillStyle='rgba(248,250,252,.6)';
-      for(let k=ashParticles.length-1;k>=0;k--){ const p=ashParticles[k]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect(i(p.x - cameraX*0.2), i(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(k,1); }
-
-      drawGround(T);
-    }
-    function drawRuins(color,speed,height){
-      const offset=i((cameraX*speed))%W; ctx.fillStyle=color;
-      for(let m=-1;m<3;m++){ const baseX=m*W - offset;
-        for(let b=0;b<5;b++){ const x=i(baseX + b*220); const w=i(80 + (b%3)*10); const h=height + (b%2? -20:20);
-          ctx.fillRect(x, groundY - h, w, h); ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
-        }
-      }
-    }
-    function drawHouses(color, speed, baseH){
-      const offset = i((cameraX*speed))%W;
-      for(let m=-1;m<3;m++){ const baseX=m*W - offset;
-        for(let k=0;k<5;k++){
-          const x = i(baseX + k*200 + (k%2)*40);
-          const w = 60 + (k%3)*18; const h = baseH + (k%2? -16:12);
-          ctx.fillStyle = color; ctx.fillRect(x, groundY - h, w, h);
-          ctx.fillStyle = 'rgba(255,231,128,.28)'; ctx.fillRect(x+10, groundY - h + 16, 10, 8); ctx.fillRect(x+w-22, groundY - h + 28, 10, 8);
-        }
-      }
-    }
-    function drawGround(T){
-      ctx.fillStyle=T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
-      ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(i(-cameraX)%8); x<W; x+=8) ctx.fillRect(x,y,2,2);
-      for(let x=-((i(cameraX))%16); x<W; x+=16){
-        ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
-        ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
-        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
-      }
-      // relieves suaves decorativos
-      ctx.fillStyle='rgba(0,0,0,.12)';
-      for (let k=0;k<W;k+=180){
-        const hx = k + (i(cameraX*0.2)%180);
-        ctx.fillRect(hx-10, groundY-5, 20, 3);
-      }
-    }
-
-    // ===== Anim =====
-    function animIndex(sheet, anim, t, fps){ const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0]; return seq[Math.floor(t*fps)%seq.length]||0; }
-
-    // ===== Spawns =====
-    function pickEnemyType(t){ const pool=[]; p('soldado',4); p('ladron',4); p('arquero',4); p('roca',2); if(t>20){p('bruto',3);p('leon',3);} if(t>35){p('oso',2);} if(t>25){p('demonio',3);} function p(k,n){for(let i=0;i<n;i++)pool.push(k);} const key=pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
-    function spawnEnemy(timeSec){
-      if(enemies.length>maxEnemies) return;
-      const t=pickEnemyType(timeSec);
-      const e={ type:t.key, sheet:t.sheet, anim:t.anim, animT:0, fps:t.fps||8,
-        hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h,
-        ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
-        x: cameraX + W + rnd(20,220), y:0, vx:0, vy:0, shootCD:t.shootCooldown||0, projectile:t.projectile||null, tRef:t, phase:rnd(0,Math.PI*2)
-      };
-      e.y = e.ground ? (groundY - e.h) : rnd(120,260);
-      enemies.push(e);
-      if (Math.random()<0.12){ const extra=1+((Math.random()*2)|0); for(let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1), animT:rnd(0,1)}); }
-    }
-
-    // ===== Reset =====
-    function resetGame(){
-      player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false,
-               hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1,
-               hives:0, hiveCD:0, bread:0, eatCD:0, hasHarp:false };
-      stones.length=0; enemies.length=0; enemyProjectiles.length=0;
-      pickups.length=0; beeBombs.length=0; beeExplosions.length=0; harpPulse.length=0;
-      score=0; cameraX=0; paused=false;
-      timeStart=performance.now(); timeNow=timeStart; elapsed=0;
-      spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
-      breadTimer=20; hiveTimer=20; harpTimer=22;
-      updateHUD(); updateHearts();
-    }
-
-    // ===== Update =====
-    function update(dt){
-      if (paused) return;
-      cameraX += (player.x - cameraX - 240) * 0.06;
-
-      // Player
-      const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
-      let moving=false;
-      if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; player.facing=-1; moving=true; }
-      if (keys['ArrowRight']||keys['d']){ player.vx= accel; player.facing= 1; moving=true; }
-      if (!moving) player.vx *= player.onGround?FRICTION:1;
-      if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
-      player.duck=!!(keys['ArrowDown']||keys['s']);
-
-      // Honda
-      player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
-      if (keys[' '] && player.canShoot===0){
-        stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
-        player.canShoot=PLAYER.stoneCooldown; player.anim='shoot'; player.animT=0;
-      }
-
-      // Pan: comer
-      player.eatCD -= dt; if (player.eatCD<0) player.eatCD=0;
-      if ((keys['e']||keys['E']) && player.bread>0 && player.eatCD===0){
-        if (player.hearts < PLAYER.maxHearts){
-          player.bread--; player.hearts = Math.min(PLAYER.maxHearts, player.hearts+1);
-          player.eatCD = 0.35; updateHearts(); updateHUD();
-        }
-      }
-
-      // Harpa
-      if ((keys['h']||keys['H']) && player.hasHarp){
-        harpPulse.push({ t:0, dur:0.7 });
-        // eliminar demonios
-        for (let i=enemies.length-1;i>=0;i--) if (enemies[i].type==='demonio'){ score += enemies[i].score; enemies.splice(i,1); }
-        player.hasHarp = false; updateHUD();
-      }
-
-      // Panal: lanzar
-      player.hiveCD -= dt; if (player.hiveCD<0) player.hiveCD=0;
-      if ((keys['g']||keys['G']) && player.hives>0 && player.hiveCD===0){
-        const dir = player.facing>=0 ? 1 : -1;
-        beeBombs.push({ x:player.x+player.w*0.5, y:player.y+8, w:12, h:12, vx:320*dir, vy:-520, gravity:1000 });
-        player.hives--; updateHUD();
-        player.hiveCD=0.5;
-      }
-
-      // Anim
-      player.anim = (player.anim==='shoot' && player.animT<0.35) ? 'shoot' : (moving ? 'walk' : 'idle');
-      player.animT += dt;
-
-      // Físicas
-      player.vy += GRAVITY*dt; player.x += player.vx*dt; player.y += player.vy*dt;
-      const ph=player.duck?player.h-10:player.h;
-      if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
-      if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
-
-      // Piedras
-      for(let s=stones.length-1;s>=0;s--){ const b=stones[s]; b.x+=b.vx*dt; b.y+=b.vy*dt; if (b.x - cameraX > W+60) stones.splice(s,1); }
-
-      // Spawns enemigos
-      spawnTimer -= dt;
-      if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
-
-      // Spawns pickups
-      breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 20 + rnd(-4,4); }
-      hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 20 + rnd(-4,4); }
-      harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 22 + rnd(-4,4); }
-
-      // Enemigos
-      for(let iE=enemies.length-1;iE>=0;iE--){
-        const e=enemies[iE];
-        if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
-        else if (e.roller){ e.vx=-e.speed; }
-        else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
-        e.x+=e.vx*dt;
-        if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
-
-        // Disparo enemigo
-        if (e.projectile && (e.shootCD!==undefined)){
-          e.shootCD -= dt;
-          if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
-            if (e.projectile==='flecha')
-              enemyProjectiles.push({ x:e.x, y:e.y+8,  w:PROJ.flecha.w, h:PROJ.flecha.h, vx:-PROJ.flecha.speed, vy:0, color:PROJ.flecha.color, from:'enemy' });
-            else if (e.projectile==='fuego')
-              enemyProjectiles.push({ x:e.x, y:e.y+10, w:PROJ.fuego.w,  h:PROJ.fuego.h,  vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
-            e.shootCD=(e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
-            if (e.sheet==='demonio'){ e.anim='fire'; e.animT=0; }
-          }
-        }
-        e.animT += dt;
-        if (e.x + e.w < cameraX - 40){ enemies.splice(iE,1); continue; }
-      }
-
-      // Proyectiles enemigos
-      for(let iP=enemyProjectiles.length-1;iP>=0;iP--){
-        const p=enemyProjectiles[iP];
-        p.vy += (p.gravity||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
-        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(iP,1); continue; }
-        if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(iP,1); continue; }
-      }
-
-      // Colisión piedras vs enemigos
-      for(let iC=enemies.length-1;iC>=0;iC--){
-        const e=enemies[iC];
-        for(let j=stones.length-1;j>=0;j--){
-          const s=stones[j];
-          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(iC,1); break; } }
-        }
-      }
-
-      // Panales arrojados
-      for(let iB=beeBombs.length-1;iB>=0;iB--){
-        const b=beeBombs[iB];
-        b.vy += b.gravity*dt; b.x += b.vx*dt; b.y += b.vy*dt;
-        if (b.y + b.h >= groundY){ detonateHive(b.x, groundY-10); beeBombs.splice(iB,1); }
-        else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(iB,1); }
-      }
-      for(let iX=beeExplosions.length-1;iX>=0;iX--){ beeExplosions[iX].t+=dt; if (beeExplosions[iX].t>beeExplosions[iX].dur) beeExplosions.splice(iX,1); }
-
-      // Harpa efecto
-      for(let ih=harpPulse.length-1;ih>=0;ih--){ harpPulse[ih].t+=dt; if (harpPulse[ih].t>harpPulse[ih].dur) harpPulse.splice(ih,1); }
-
-      // Pickups
-      for(let ip=pickups.length-1;ip>=0;ip--){
-        const it=pickups[ip];
-        if (rectsOverlap(player,it)){
-          if (it.type==='bread'){
-            if (player.hearts < PLAYER.maxHearts){ player.hearts=Math.min(PLAYER.maxHearts, player.hearts+1); updateHearts(); }
-            else { player.bread++; }
-          } else if (it.type==='hive'){ player.hives++; }
-          else if (it.type==='harp'){ player.hasHarp = true; }
-          updateHUD(); pickups.splice(ip,1);
-        }
-        if (it.x + it.w < cameraX - 60) pickups.splice(ip,1);
-      }
-
-      // Daño al jugador
-      if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
-      const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h: player.duck?player.h-10:player.h };
-      for(let iH=enemies.length-1;iH>=0;iH--) if (rectsOverlap(pHit, enemies[iH])) { if (player.inv===0) damagePlayer(enemies[iH].damage); }
-      for(let iQ=enemyProjectiles.length-1;iQ>=0;iQ--) if (rectsOverlap(pHit, enemyProjectiles[iQ])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(iQ,1); }
-
-      // HUD
-      timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
-      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
-      hudScore.textContent = `Puntos: ${score}`;
-    }
-
-    // ===== Pickups =====
-    function spawnPickup(type){
-      const w = (type==='bread') ? 16 : (type==='hive'? 18 : 16);
-      const h = (type==='bread') ? 12 : (type==='hive'? 16 : 16);
-      const px = cameraX + W + rnd(60, 220);
-      pickups.push({ type, x:px, y: groundY - h, w, h });
-    }
-    function drawPickup(it){
-      const x=i(it.x - cameraX), y=i(it.y);
-      if (it.type==='bread'){
-        ctx.fillStyle='#f8b26a'; ctx.fillRect(x, y+2, it.w, it.h-4);
-        ctx.fillStyle='#d97706'; ctx.fillRect(x, y, 3, it.h-2); ctx.fillRect(x+it.w-3, y, 3, it.h-2);
-      } else if (it.type==='hive'){
-        ctx.fillStyle='#facc15'; ctx.fillRect(x+3, y+1, it.w-6, it.h-2);
-        ctx.fillRect(x+1, y+3, it.w-2, it.h-6);
-        ctx.fillRect(x+3, y+it.h-3, it.w-6, 2);
-        ctx.fillStyle='#92400e'; ctx.fillRect(x+Math.floor(it.w/2)-2, y+Math.floor(it.h/2)-2, 4, 4);
-      } else { // harp
-        ctx.fillStyle='#eab308'; ctx.fillRect(x+3, y, it.w-6, it.h);
-        ctx.clearRect(x+5, y+2, it.w-10, it.h-4);
-        ctx.fillStyle='#fde68a'; for(let s=0;s<3;s++){ ctx.fillRect(x+6+s*3, y+2, 1, it.h-4); }
-        ctx.fillStyle='#b45309'; ctx.fillRect(x+2, y+it.h-2, it.w-4, 2);
-      }
-    }
-
-    function detonateHive(cx, cy){
-      beeExplosions.push({ x:cx, y:cy, t:0, dur:0.6 });
-      const withDist = enemies.map((e,idx)=>({idx, d: Math.hypot((e.x+e.w*0.5)-cx, (e.y+e.h*0.5)-cy)})).sort((a,b)=>a.d-b.d);
-      const victims=[];
-      for (const it of withDist){ if (it.d<=140) victims.push(it.idx); if (victims.length>=6) break; }
-      if (victims.length<6){ for (const it of withDist){ if (!victims.includes(it.idx) && it.d<=200) victims.push(it.idx); if (victims.length>=6) break; } }
-      victims.sort((a,b)=>b-a).forEach(i=>{ if (enemies[i]) { score += enemies[i].score; enemies.splice(i,1); } });
-    }
-
-    // ===== Daño / HUD =====
-    function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); updateHearts(); }
-    function updateHearts(){ const hearts='❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent=`Vida: ${hearts}`; }
-    function updateHUD(){ hudItems.textContent = `Pan: ${player?.bread ?? 0} · Panales: ${player?.hives ?? 0} · Harpa: ${player?.hasHarp ? 'Lista' : '—'}`; }
-
-    // ===== Render =====
-    function drawPlayer(){
-      const px=i(player.x - cameraX), py=i(player.y);
-      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
-      if (SPRITES_READY) {
-        let anim = player.anim; if (anim==='shoot' && player.animT>0.35) anim = (Math.abs(player.vx)>1?'walk':'idle');
-        const idx = animIndex('david', anim, player.animT, player.fps);
-        drawTrimmed('david', idx, px, py, player.w, player.h, 1, 0);
-      } else { ctx.fillStyle='#9ca3af'; ctx.fillRect(px, py, player.w, player.h); }
-    }
-    function drawEnemy(e){
-      const gx=i(e.x - cameraX), gy=i(e.y);
-      if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(gx - 4, groundY-4, (e.w+8)|0, 3); }
-      if (SPRITES_READY){
-        let anim=e.anim; if (e.sheet==='demonio' && anim==='fire' && e.animT>0.3) anim='fly';
-        const idx=animIndex(e.sheet, anim, e.animT, e.fps||8);
-        const yNudge = (!e.flyer ? 2 : 0);
-        drawTrimmed(e.sheet, idx, gx, gy, e.w, e.h, 1, yNudge);
-      } else {
-        ctx.fillStyle='#e879f9'; ctx.fillRect(gx, gy, e.w, e.h);
-      }
-    }
-    function render(dt){
-      drawBackground(dt);
-
-      // pickups
-      for (const it of pickups) drawPickup(it);
-
-      // piedras
-      for (const s of stones){ ctx.fillStyle=s.color; ctx.fillRect(i(s.x - cameraX), i(s.y), s.w, s.h); }
-
-      // enemigos y proyectiles
-      for (const e of enemies) drawEnemy(e);
-      for (const p of enemyProjectiles){ ctx.fillStyle=p.color; ctx.fillRect(i(p.x - cameraX), i(p.y), p.w, p.h); }
-
-      // panales arrojados + efecto
-      for (const b of beeBombs){
-        const x=i(b.x - cameraX), y=i(b.y);
-        ctx.fillStyle='#facc15'; ctx.fillRect(x, y, b.w, b.h);
-        ctx.fillStyle='#78350f'; ctx.fillRect(x+4, y+4, 4, 4);
-      }
-      for (const ex of beeExplosions){
-        const prog = ex.t/ex.dur, R = 40 + 80*prog;
-        for(let t=0;t<14;t++){
-          const ang = (t/14)*Math.PI*2 + prog*6;
-          const px = (ex.x - cameraX) + Math.cos(ang)*R;
-          const py = ex.y - Math.sin(ang)*R*0.6;
-          ctx.fillStyle = (t%2)? 'rgba(250,204,21,0.85)' : 'rgba(234,179,8,0.85)';
-          ctx.fillRect(i(px), i(py), 3, 3);
-        }
-      }
-
-      // ondas harpa
-      for (const hp of harpPulse){
-        const k = hp.t/hp.dur, R = 40 + 340*k;
-        ctx.strokeStyle = `rgba(234,179,8,${1-k})`; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(i(player.x - cameraX), i(player.y+10), R, 0, Math.PI*2); ctx.stroke();
-      }
-
-      drawPlayer();
-
-      if (!SPRITES_READY){
-        ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(8,8,230,48);
-        ctx.fillStyle='#fde68a'; ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-        ctx.fillText('Cargando sprites…',16,26);
-        ctx.fillText('Usando fallback visual',16,44);
-      }
-    }
-
-    // ===== Loop =====
-    let last=0; function loop(ts){ const now=ts||performance.now(); const dt=Math.min(0.033,(now-last)/1000)||0.016; last=now; if (state==='play'){ update(dt); render(dt); } requestAnimationFrame(loop); }
-
-    // ===== Audio helpers =====
-    function playSafe(audio, vol=0.5, reset=false){
-      try{ if (reset) audio.currentTime = 0; audio.volume = vol; const p = audio.play(); if (p && p.catch) p.catch(()=>{}); }catch(_){}
-    }
-    function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
-
-    // ===== Flujo =====
-    function startGame(){
-      state='play'; startOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
-      resetGame();
-      stopSafe(bgmLobby);
-      playSafe(bgmGame, 0.45, true);
-      stopSafe(bgmLose); try{ bgmLose.currentTime=0; }catch(_){}
-      window.focus();
-    }
-    function gameOver(){
-      state='gameover';
-      const best=getBest(); if (elapsed>best) setBest(elapsed);
-      timeSurvivedEl.textContent=fmtTime(elapsed); bestTimeEl.textContent=fmtTime(getBest());
-      gameOverOverlay.classList.remove('hidden');
-      stopSafe(bgmGame);
-      playSafe(bgmLose, 0.6, true);
-    }
-
-    // ===== Input =====
-    window.addEventListener('keydown', (e)=>{
-      if (e.code==='Space') e.preventDefault();
-      keys[e.key]=true;
-      if ((e.key==='p'||e.key==='P') && state==='play'){
-        paused=!paused;
-        if (paused) stopSafe(bgmGame); else playSafe(bgmGame, 0.45, false);
-      }
-      if (e.key==='i'||e.key==='I') controlsPanel.classList.toggle('hidden');
-    });
-    window.addEventListener('keyup', e=>{ keys[e.key]=false; });
-
-    // Start / Restart
-    btnStart.addEventListener('click', startGame);
-    btnRestart.addEventListener('click', startGame);
-
-    // Best time
-    bestStart.textContent = fmtTime(getBest());
-
-    // Música lobby con gesto
-    let triedLobby=false;
-    function ensureLobbyPlay(){
-      if (state!=='start'||triedLobby) return;
-      triedLobby=true; playSafe(bgmLobby, 0.55, true);
-    }
-    ['pointerdown','keydown','touchstart','pointermove','click'].forEach(ev=>window.addEventListener(ev, ensureLobbyPlay));
-    btnStart.addEventListener('pointerenter', ensureLobbyPlay);
-
-    // Boot
-    requestAnimationFrame(ts=>{ last=ts; loop(ts); });
-  })();
-  </script>
+  <div class="wrap">
+    <div class="stage">
+            <audio id="bgmLobby" src="audio1.mp3" loop preload="auto"></audio>
+      <audio id="bgmGame"  src="musica.mp3" loop preload="auto"></audio>
+      <audio id="bgmLose"  src="audio2.mp3" preload="auto"></audio>
+
+      <canvas id="game" width="1280" height="720"></canvas>
+
+      <div id="controlsPanel" class="controls-panel">
+        <h3>Controles</h3>
+        <ul>
+          <li>← / → : Mover</li>
+          <li>↑ : Saltar · ↓ : Agacharse</li>
+          <li>ESPACIO : Honda (más rápida)</li>
+          <li>G : Lanzar panal (granada, mata 6)</li>
+          <li>E : Comer pan (+1 corazón si tienes)</li>
+          <li>H : Tocar harpa (los demonios desaparecen)</li>
+          <li>P : Pausar · I : Mostrar/Ocultar ayuda</li>
+        </ul>
+        <div class="hint">Novedad: aparecen Pan (20s), Panales (20s) y Harpa (22s).</div>
+      </div>
+
+      <div id="startOverlay" class="overlay">
+        <div class="panel">
+          <h1 class="title">EL REINO DE DAVID: <span style="color:#f87171">ESCAPE DEL VALLE</span></h1>
+          <div class="subtitle">Pixel-arcade apocalíptico: cielos rojizos, ceniza y ruinas. Sobrevive a hordas crecientes.</div>
+          <div class="btns"><button id="btnStart" class="pixel">Iniciar</button></div>
+          <div class="muted" style="margin-top:12px">Record máximo de tiempo: <span id="bestStart">00:00</span></div>
+          <div class="muted" style="margin-top:8px">Controles: ←/→, ↑, ↓, ESPACIO, G, E, H, P, I</div>
+        </div>
+      </div>
+
+      <div id="gameOverOverlay" class="overlay hidden">
+        <div class="panel">
+          <h1 class="title">El valle te ha reclamado…</h1>
+          <div class="subtitle">Tiempo sobrevivido: <span id="timeSurvived">00:00</span> · Record: <span id="bestTime">00:00</span></div>
+          <div class="btns"><button id="btnRestart" class="pixel">Reiniciar</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud" id="hud">
+      <div class="tag" id="hudHealth">Vida: ❤❤❤❤❤❤</div>
+      <div class="tag" id="hudTime">Tiempo: 00:00</div>
+      <div class="tag" id="hudScore">Puntos: 0</div>
+      <div class="tag" id="hudItems">Pan: 0 · Panales: 0 · Harpa: —</div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    // ===== Canvas / UI / Audio =====
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d', { alpha:true });
+    ctx.imageSmoothingEnabled = false;
+
+    const startOverlay   = document.getElementById('startOverlay');
+    const gameOverOverlay= document.getElementById('gameOverOverlay');
+    const btnStart       = document.getElementById('btnStart');
+    const btnRestart     = document.getElementById('btnRestart');
+    const bestStart      = document.getElementById('bestStart');
+    const bestTimeEl     = document.getElementById('bestTime');
+    const timeSurvivedEl = document.getElementById('timeSurvived');
+
+    const hudHealth = document.getElementById('hudHealth');
+    const hudTime   = document.getElementById('hudTime');
+    const hudScore  = document.getElementById('hudScore');
+    const hudItems  = document.getElementById('hudItems');
+
+    const controlsPanel = document.getElementById('controlsPanel');
+    const bgmLobby = document.getElementById('bgmLobby');
+    const bgmGame  = document.getElementById('bgmGame');
+    const bgmLose  = document.getElementById('bgmLose');
+
+    // ===== Constantes =====
+    const W = canvas.width, H = canvas.height;
+    const i = (v)=>v|0; // enteros: evita “doble” horizontal
+    const GRAVITY = 2400, FRICTION = 0.85;
+    // honda más rápida
+    const PLAYER = { w: 28, h: 42, speed: 280, jump: 820, maxHearts: 6, invTime: 0.9, stoneCooldown: 0.18 };
+    const groundY = H - 78;
+
+    // ===== Temas de fondo =====
+    const THEMES = [
+      { skyTop:'#3a0d14', skyMid:'#25070d', skyBot:'#0f0a10', glow:'rgba(248,113,113,.20)', grass1:'#3c2b27', grass2:'#5a3a33', dirt1:'#2c1714', dirt2:'#3a1f1a', ruin:'#4a2a2a', house:'#3a2424' },
+      { skyTop:'#40220a', skyMid:'#2a1606', skyBot:'#100b08', glow:'rgba(251,191,36,.18)', grass1:'#3b3325', grass2:'#5a4a2f', dirt1:'#2e2416', dirt2:'#3a2e1b', ruin:'#4d3b21', house:'#3b2f1f' },
+      { skyTop:'#15222c', skyMid:'#0f1821', skyBot:'#0a0f16', glow:'rgba(96,165,250,.14)', grass1:'#243a32', grass2:'#3b5f54', dirt1:'#1b2a26', dirt2:'#20332e', ruin:'#1f2a34', house:'#203236' }
+    ];
+    const currentTheme = (t)=>THEMES[Math.floor(t/60)%THEMES.length];
+
+    // ===== Sprites =====
+    const SOURCES = {
+      david:"David.png", soldado:"Soldado_basico.png", arquero:"Arquero.png",
+      bruto:"Bruto.png", ladron:"Ladron.png", leon:"Leon.png",
+      oso:"Oso.png", demonio:"Demonio.png", roca:"Roca.png"
+    };
+    const GRID = {
+      david:{cols:5,rows:2}, soldado:{cols:4,rows:1}, arquero:{cols:6,rows:1},
+      bruto:{cols:6,rows:1}, ladron:{cols:6,rows:1}, leon:{cols:5,rows:1},
+      oso:{cols:5,rows:1}, demonio:{cols:2,rows:2}, roca:{cols:4,rows:1},
+    };
+    const ANIMS = {
+      david:{walk:[0,1,2,3,4], shoot:[5,6,7,8,9], idle:[0]},
+      soldado:{walk:[0,1,2,3], idle:[0]},
+      arquero:{walk:[0,1,2,3,4,5], idle:[3]},
+      bruto:{walk:[0,1,2,3,4,5], idle:[2]},
+      ladron:{walk:[0,1,2,3,4,5], idle:[0]},
+      leon:{walk:[0,1,2,3,4], idle:[2]},
+      oso:{walk:[0,1,2,3,4], idle:[2]},
+      roca:{roll:[0,1,2,3]},
+      demonio:{fly:[0,1], fire:[2,3], idle:[0]}
+    };
+
+    const Sheets={}; let SPRITES_READY=false; const ALPHA_THRESHOLD=24, PAD_SRC=1;
+    function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+    // CAMBIO: SE MODIFICA LA LÓGICA DE RECORTE PARA QUE DIBUJE EL SPRITE COMPLETO SIN RECORTE
+    function buildGridWithTrim(key,img){
+      const {cols,rows}=GRID[key]; const fw=Math.floor(img.naturalWidth/cols), fh=Math.floor(img.naturalHeight/rows);
+      const frames=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) frames.push({
+        sx: c*fw, sy: r*fh, sw: fw, sh: fh, footLocal: fh-1, empty: false
+      });
+      Sheets[key]={img,fw,fh,cols,rows,total:frames.length,frames};
+    }
+    (async()=>{ try{ for(const [k,src] of Object.entries(SOURCES)){ const im=await loadImage(src); buildGridWithTrim(k,im); } SPRITES_READY=true; }catch(e){ console.error('Sprites:',e); } })();
+
+    const SPRITE_SCALE=0.64;
+    // CAMBIO: SE AJUSTA EL CÁLCULO DE LA ESCALA
+    function drawTrimmed(sheetKey, frameIdx, x, y, w, h, scaleMul=1, yNudge=0){
+      const S=Sheets[sheetKey]; if(!S) return;
+      const f=S.frames[Math.max(0,Math.min(frameIdx|0,S.total-1))];
+      const base=Math.min(w/f.sw, h/f.sh)*SPRITE_SCALE*(scaleMul||1);
+      const scale=Math.max(0.25, Math.round(base*4)/4);
+      const dw=Math.max(1,Math.round(f.sw*scale)), dh=Math.max(1,Math.round(f.sh*scale));
+      const destBottom=i(y + h + (yNudge||0));
+      const destTop=i(destBottom - (f.footLocal+1)*scale);
+      const dx=i(x + (w - dw)*0.5);
+      ctx.drawImage(S.img, f.sx,f.sy,f.sw,f.sh, dx,destTop, dw,dh);
+    }
+
+    // ===== Entidades / Proyectiles =====
+    const PROJ = {
+      piedra:{speed:660,w:8,h:8,color:'#d1d5db',gravity:0,from:'player'},
+      flecha:{speed:390,w:12,h:4,color:'#fcd34d',gravity:0,from:'enemy'},
+      fuego:{speed:300,w:10,h:10,color:'#fb7185',gravity:520,from:'enemy'}
+    };
+    const ENEMY_TYPES=[
+      { key:'soldado', hp:3, speed:130, damage:1, score:20, w:24, h:38, ground:true, sheet:'soldado', anim:'walk', fps:8 },
+      { key:'arquero', hp:2, speed:105, damage:1, score:35, w:22, h:36, ground:true, sheet:'arquero', anim:'walk', fps:8, shootCooldown:1.3, projectile:'flecha' },
+      { key:'bruto',   hp:6, speed:75,  damage:2, score:70, w:34, h:50, ground:true, sheet:'bruto',   anim:'walk', fps:7 },
+      { key:'ladron',  hp:1, speed:210, damage:1, score:30, w:20, h:34, ground:true, sheet:'ladron',  anim:'walk', fps:12 },
+      { key:'leon',    hp:3, speed:165, damage:2, score:55, w:36, h:26, ground:true, sheet:'leon',    anim:'walk', fps:10 },
+      { key:'oso',     hp:6, speed:95,  damage:3, score:80, w:44, h:30, ground:true, sheet:'oso',     anim:'walk', fps:7 },
+      { key:'demonio', hp:3, speed:130, damage:2, score:85, w:40, h:34, flyer:true, ground:false, sheet:'demonio', anim:'fly', fps:6, shootCooldown:1.5, projectile:'fuego' },
+      { key:'roca',    hp:3, speed:175, damage:2, score:30, w:22, h:22, ground:true, roller:true, sheet:'roca', anim:'roll', fps:12 }
+    ];
+
+    // ===== Estado =====
+    let state='start', keys={}, cameraX=0;
+    let player, stones=[], enemies=[], enemyProjectiles=[];
+    let timeStart=0, timeNow=0, elapsed=0, score=0, paused=false;
+    let spawnTimer=0, spawnInterval=1.05, maxEnemies=18;
+
+    // Pickups e ítems
+    let pickups=[]; // {type:'bread'|'hive'|'harp', x,y,w,h}
+    let breadTimer=20, hiveTimer=20, harpTimer=22;
+    let beeBombs=[], beeExplosions=[], harpPulse=[];
+
+    // ===== Utils =====
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const chance=p=>Math.random()<p;
+    const fmtTime=sec=>{const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;};
+    const getBest=()=>+localStorage.getItem('erd_best')||0;
+    const setBest=v=>localStorage.setItem('erd_best', String(Math.floor(v)));
+    function rectsOverlap(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+
+    // ===== Fondo con más detalle =====
+    let ashParticles=[], clouds=[];
+    function ensureClouds(){ if (clouds.length<8) clouds.push({ x:rnd(-100,W+200), y:rnd(30,140), w:rnd(90,200), h:rnd(20,36), s:rnd(8,16)/10 }); }
+
+    function drawBackground(dt){
+      const T=currentTheme(elapsed);
+      const g=ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,T.skyTop); g.addColorStop(.55,T.skyMid); g.addColorStop(1,T.skyBot);
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+      // nubes
+      ensureClouds();
+      ctx.fillStyle='rgba(250,250,255,.16)';
+      for (const c of clouds){
+        c.x -= c.s*dt*30; if (c.x + c.w < -60){ c.x = W + rnd(20,200); c.y = rnd(30,140); }
+        ctx.fillRect(i(c.x - cameraX*0.08), i(c.y), i(c.w), i(c.h));
+        ctx.clearRect(i(c.x - cameraX*0.08)+8, i(c.y)+2, i(c.w)-16, 2);
+      }
+
+      // brillo bajo
+      ctx.fillStyle=T.glow; ctx.fillRect(0,H-160,W,160);
+
+      // ruinas y casitas
+      drawRuins(T.ruin,0.16,220); drawHouses(T.house,0.22,160);
+      drawRuins(T.ruin,0.28,160); drawHouses(T.house,0.35,120);
+
+      // ceniza
+      if (ashParticles.length<120 && chance(0.6)) ashParticles.push({ x:rnd(-40,W+40), y:rnd(-20,H-40), a:rnd(0.5,1.2) });
+      ctx.fillStyle='rgba(248,250,252,.6)';
+      for(let k=ashParticles.length-1;k>=0;k--){ const p=ashParticles[k]; p.y+=p.a*8*dt; p.x-=p.a*12*dt; ctx.fillRect(i(p.x - cameraX*0.2), i(p.y), 1, 1); if (p.y>H||p.x<-60) ashParticles.splice(k,1); }
+
+      drawGround(T);
+    }
+    function drawRuins(color,speed,height){
+      const offset=i((cameraX*speed))%W; ctx.fillStyle=color;
+      for(let m=-1;m<3;m++){ const baseX=m*W - offset;
+        for(let b=0;b<5;b++){ const x=i(baseX + b*220); const w=i(80 + (b%3)*10); const h=height + (b%2? -20:20);
+          ctx.fillRect(x, groundY - h, w, h); ctx.clearRect(x+8, groundY - h - 4, w-16, 3);
+        }
+      }
+    }
+    function drawHouses(color, speed, baseH){
+      const offset = i((cameraX*speed))%W;
+      for(let m=-1;m<3;m++){ const baseX=m*W - offset;
+        for(let k=0;k<5;k++){
+          const x = i(baseX + k*200 + (k%2)*40);
+          const w = 60 + (k%3)*18; const h = baseH + (k%2? -16:12);
+          ctx.fillStyle = color; ctx.fillRect(x, groundY - h, w, h);
+          ctx.fillStyle = 'rgba(255,231,128,.28)'; ctx.fillRect(x+10, groundY - h + 16, 10, 8); ctx.fillRect(x+w-22, groundY - h + 28, 10, 8);
+        }
+      }
+    }
+    function drawGround(T){
+      ctx.fillStyle=T.dirt1; ctx.fillRect(0, groundY, W, H-groundY);
+      ctx.fillStyle=T.dirt2; for(let y=groundY+2;y<H;y+=4) for(let x=(i(-cameraX)%8); x<W; x+=8) ctx.fillRect(x,y,2,2);
+      for(let x=-((i(cameraX))%16); x<W; x+=16){
+        ctx.fillStyle=T.grass1; ctx.fillRect(x, groundY-9, 16, 9);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+2, groundY-12, 12, 5);
+        ctx.fillStyle=T.grass2; ctx.fillRect(x+1, groundY-1, 3, 1); ctx.fillRect(x+6, groundY-2, 2, 2); ctx.fillRect(x+12, groundY-1, 3,1);
+      }
+      // relieves suaves decorativos
+      ctx.fillStyle='rgba(0,0,0,.12)';
+      for (let k=0;k<W;k+=180){
+        const hx = k + (i(cameraX*0.2)%180);
+        ctx.fillRect(hx-10, groundY-5, 20, 3);
+      }
+    }
+
+    // ===== Anim =====
+    function animIndex(sheet, anim, t, fps){ const seq=ANIMS[sheet]?.[anim]||ANIMS[sheet]?.idle||[0]; return seq[Math.floor(t*fps)%seq.length]||0; }
+
+    // ===== Spawns =====
+    function pickEnemyType(t){ const pool=[]; p('soldado',4); p('ladron',4); p('arquero',4); p('roca',2); if(t>20){p('bruto',3);p('leon',3);} if(t>35){p('oso',2);} if(t>25){p('demonio',3);} function p(k,n){for(let i=0;i<n;i++)pool.push(k);} const key=pool[(Math.random()*pool.length)|0]; return ENEMY_TYPES.find(e=>e.key===key); }
+    function spawnEnemy(timeSec){
+      if(enemies.length>maxEnemies) return;
+      const t=pickEnemyType(timeSec);
+      const e={ type:t.key, sheet:t.sheet, anim:t.anim, animT:0, fps:t.fps||8,
+        hp:t.hp, speed:t.speed, damage:t.damage, score:t.score, w:t.w, h:t.h,
+        ground:!!t.ground, flyer:!!t.flyer, roller:!!t.roller,
+        x: cameraX + W + rnd(20,220), y:0, vx:0, vy:0, shootCD:t.shootCooldown||0, projectile:t.projectile||null, tRef:t, phase:rnd(0,Math.PI*2)
+      };
+      e.y = e.ground ? (groundY - e.h) : rnd(120,260);
+      enemies.push(e);
+      if (Math.random()<0.12){ const extra=1+((Math.random()*2)|0); for(let k=0;k<extra;k++) enemies.push({...e, x:e.x+40*(k+1), animT:rnd(0,1)}); }
+    }
+
+    // ===== Reset =====
+    function resetGame(){
+      player={ x:140, y:groundY-PLAYER.h, vx:0, vy:0, w:PLAYER.w, h:PLAYER.h, onGround:true, duck:false,
+               hearts:PLAYER.maxHearts, inv:0, canShoot:0, anim:'idle', animT:0, fps:9, facing:1,
+               hives:0, hiveCD:0, bread:0, eatCD:0, hasHarp:false };
+      stones.length=0; enemies.length=0; enemyProjectiles.length=0;
+      pickups.length=0; beeBombs.length=0; beeExplosions.length=0; harpPulse.length=0;
+      score=0; cameraX=0; paused=false;
+      timeStart=performance.now(); timeNow=timeStart; elapsed=0;
+      spawnTimer=0; spawnInterval=1.05; maxEnemies=18;
+      breadTimer=20; hiveTimer=20; harpTimer=22;
+      updateHUD(); updateHearts();
+    }
+
+    // ===== Update =====
+    function update(dt){
+      if (paused) return;
+      cameraX += (player.x - cameraX - 240) * 0.06;
+
+      // Player
+      const accel = player.onGround ? PLAYER.speed : PLAYER.speed*0.8;
+      let moving=false;
+      if (keys['ArrowLeft']||keys['a']){ player.vx=-accel; player.facing=-1; moving=true; }
+      if (keys['ArrowRight']||keys['d']){ player.vx= accel; player.facing= 1; moving=true; }
+      if (!moving) player.vx *= player.onGround?FRICTION:1;
+      if ((keys['ArrowUp']||keys['w']) && player.onGround){ player.vy=-PLAYER.jump; player.onGround=false; }
+      player.duck=!!(keys['ArrowDown']||keys['s']);
+
+      // Honda
+      player.canShoot -= dt; if (player.canShoot<0) player.canShoot=0;
+      if (keys[' '] && player.canShoot===0){
+        stones.push({ x:player.x+player.w, y:player.y+12, w:PROJ.piedra.w, h:PROJ.piedra.h, vx:PROJ.piedra.speed, vy:0, color:PROJ.piedra.color, from:'player' });
+        player.canShoot=PLAYER.stoneCooldown; player.anim='shoot'; player.animT=0;
+      }
+
+      // Pan: comer
+      player.eatCD -= dt; if (player.eatCD<0) player.eatCD=0;
+      if ((keys['e']||keys['E']) && player.bread>0 && player.eatCD===0){
+        if (player.hearts < PLAYER.maxHearts){
+          player.bread--; player.hearts = Math.min(PLAYER.maxHearts, player.hearts+1);
+          player.eatCD = 0.35; updateHearts(); updateHUD();
+        }
+      }
+
+      // Harpa
+      if ((keys['h']||keys['H']) && player.hasHarp){
+        harpPulse.push({ t:0, dur:0.7 });
+        // eliminar demonios
+        for (let i=enemies.length-1;i>=0;i--) if (enemies[i].type==='demonio'){ score += enemies[i].score; enemies.splice(i,1); }
+        player.hasHarp = false; updateHUD();
+      }
+
+      // Panal: lanzar
+      player.hiveCD -= dt; if (player.hiveCD<0) player.hiveCD=0;
+      if ((keys['g']||keys['G']) && player.hives>0 && player.hiveCD===0){
+        const dir = player.facing>=0 ? 1 : -1;
+        beeBombs.push({ x:player.x+player.w*0.5, y:player.y+8, w:12, h:12, vx:320*dir, vy:-520, gravity:1000 });
+        player.hives--; updateHUD();
+        player.hiveCD=0.5;
+      }
+
+      // Anim
+      player.anim = (player.anim==='shoot' && player.animT<0.35) ? 'shoot' : (moving ? 'walk' : 'idle');
+      player.animT += dt;
+
+      // Físicas
+      player.vy += GRAVITY*dt; player.x += player.vx*dt; player.y += player.vy*dt;
+      const ph=player.duck?player.h-10:player.h;
+      if (player.y + ph >= groundY){ player.y=groundY - ph; player.vy=0; player.onGround=true; }
+      if (player.y < 60){ player.y=60; player.vy=Math.max(0,player.vy); }
+
+      // Piedras
+      for(let s=stones.length-1;s>=0;s--){ const b=stones[s]; b.x+=b.vx*dt; b.y+=b.vy*dt; if (b.x - cameraX > W+60) stones.splice(s,1); }
+
+      // Spawns enemigos
+      spawnTimer -= dt;
+      if (spawnTimer<=0){ spawnEnemy(elapsed); spawnInterval=Math.max(0.65, spawnInterval-0.0045); spawnTimer=spawnInterval + (Math.random()*0.3 - 0.15); if (elapsed>90 && maxEnemies<24) maxEnemies=24; }
+
+      // Spawns pickups
+      breadTimer -= dt; if (breadTimer<=0){ spawnPickup('bread'); breadTimer = 20 + rnd(-4,4); }
+      hiveTimer  -= dt; if (hiveTimer<=0){ spawnPickup('hive');  hiveTimer  = 20 + rnd(-4,4); }
+      harpTimer  -= dt; if (harpTimer<=0){ spawnPickup('harp');  harpTimer  = 22 + rnd(-4,4); }
+
+      // Enemigos
+      for(let iE=enemies.length-1;iE>=0;iE--){
+        const e=enemies[iE];
+        if (e.flyer){ e.vx=-e.speed; e.vy=Math.sin((elapsed+e.phase)*2.0)*20; e.y+=e.vy*dt; }
+        else if (e.roller){ e.vx=-e.speed; }
+        else { e.vx=-e.speed + (e.type==='ladron'?-50:0); }
+        e.x+=e.vx*dt;
+        if (e.ground){ if (e.y + e.h < groundY) e.y+=GRAVITY*dt; if (e.y + e.h > groundY) e.y=groundY - e.h; }
+
+        // Disparo enemigo
+        if (e.projectile && (e.shootCD!==undefined)){
+          e.shootCD -= dt;
+          if (e.shootCD<=0 && e.x - cameraX < W && e.x - cameraX > 100){
+            if (e.projectile==='flecha')
+              enemyProjectiles.push({ x:e.x, y:e.y+8,  w:PROJ.flecha.w, h:PROJ.flecha.h, vx:-PROJ.flecha.speed, vy:0, color:PROJ.flecha.color, from:'enemy' });
+            else if (e.projectile==='fuego')
+              enemyProjectiles.push({ x:e.x, y:e.y+10, w:PROJ.fuego.w,  h:PROJ.fuego.h,  vx:-80 - Math.random()*60, vy:100 + Math.random()*60, color:PROJ.fuego.color, from:'enemy', gravity: PROJ.fuego.gravity });
+            e.shootCD=(e.tRef.shootCooldown||1.2) + (Math.random()*0.3 - 0.15);
+            if (e.sheet==='demonio'){ e.anim='fire'; e.animT=0; }
+          }
+        }
+        e.animT += dt;
+        if (e.x + e.w < cameraX - 40){ enemies.splice(iE,1); continue; }
+      }
+
+      // Proyectiles enemigos
+      for(let iP=enemyProjectiles.length-1;iP>=0;iP--){
+        const p=enemyProjectiles[iP];
+        p.vy += (p.gravity||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+        if (p.y + p.h >= groundY && (!p.gravity || p.gravity>0)){ enemyProjectiles.splice(iP,1); continue; }
+        if (p.x + p.w < cameraX - 40){ enemyProjectiles.splice(iP,1); continue; }
+      }
+
+      // Colisión piedras vs enemigos
+      for(let iC=enemies.length-1;iC>=0;iC--){
+        const e=enemies[iC];
+        for(let j=stones.length-1;j>=0;j--){
+          const s=stones[j];
+          if (rectsOverlap(e,s)){ e.hp-=1; stones.splice(j,1); score+=5; if (e.hp<=0){ score+=e.score; enemies.splice(iC,1); break; } }
+        }
+      }
+
+      // Panales arrojados
+      for(let iB=beeBombs.length-1;iB>=0;iB--){
+        const b=beeBombs[iB];
+        b.vy += b.gravity*dt; b.x += b.vx*dt; b.y += b.vy*dt;
+        if (b.y + b.h >= groundY){ detonateHive(b.x, groundY-10); beeBombs.splice(iB,1); }
+        else if (b.x - cameraX > W+80 || b.x < cameraX-120){ beeBombs.splice(iB,1); }
+      }
+      for(let iX=beeExplosions.length-1;iX>=0;iX--){ beeExplosions[iX].t+=dt; if (beeExplosions[iX].t>beeExplosions[iX].dur) beeExplosions.splice(iX,1); }
+
+      // Harpa efecto
+      for(let ih=harpPulse.length-1;ih>=0;ih--){ harpPulse[ih].t+=dt; if (harpPulse[ih].t>harpPulse[ih].dur) harpPulse.splice(ih,1); }
+
+      // Pickups
+      for(let ip=pickups.length-1;ip>=0;ip--){
+        const it=pickups[ip];
+        if (rectsOverlap(player,it)){
+          if (it.type==='bread'){
+            if (player.hearts < PLAYER.maxHearts){ player.hearts=Math.min(PLAYER.maxHearts, player.hearts+1); updateHearts(); }
+            else { player.bread++; }
+          } else if (it.type==='hive'){ player.hives++; }
+          else if (it.type==='harp'){ player.hasHarp = true; }
+          updateHUD(); pickups.splice(ip,1);
+        }
+        if (it.x + it.w < cameraX - 60) pickups.splice(ip,1);
+      }
+
+      // Daño al jugador
+      if (player.inv>0) player.inv-=dt; if (player.inv<0) player.inv=0;
+      const pHit={ x:player.x, y:player.y + (player.duck?10:0), w:player.w, h: player.duck?player.h-10:player.h };
+      for(let iH=enemies.length-1;iH>=0;iH--) if (rectsOverlap(pHit, enemies[iH])) { if (player.inv===0) damagePlayer(enemies[iH].damage); }
+      for(let iQ=enemyProjectiles.length-1;iQ>=0;iQ--) if (rectsOverlap(pHit, enemyProjectiles[iQ])) { if (player.inv===0) damagePlayer(1); enemyProjectiles.splice(iQ,1); }
+
+      // HUD
+      timeNow=performance.now(); elapsed=(timeNow-timeStart)/1000;
+      hudTime.textContent = `Tiempo: ${fmtTime(elapsed)}`;
+      hudScore.textContent = `Puntos: ${score}`;
+    }
+
+    // ===== Pickups =====
+    function spawnPickup(type){
+      const w = (type==='bread') ? 16 : (type==='hive'? 18 : 16);
+      const h = (type==='bread') ? 12 : (type==='hive'? 16 : 16);
+      const px = cameraX + W + rnd(60, 220);
+      pickups.push({ type, x:px, y: groundY - h, w, h });
+    }
+    function drawPickup(it){
+      const x=i(it.x - cameraX), y=i(it.y);
+      if (it.type==='bread'){
+        ctx.fillStyle='#f8b26a'; ctx.fillRect(x, y+2, it.w, it.h-4);
+        ctx.fillStyle='#d97706'; ctx.fillRect(x, y, 3, it.h-2); ctx.fillRect(x+it.w-3, y, 3, it.h-2);
+      } else if (it.type==='hive'){
+        ctx.fillStyle='#facc15'; ctx.fillRect(x+3, y+1, it.w-6, it.h-2);
+        ctx.fillRect(x+1, y+3, it.w-2, it.h-6);
+        ctx.fillRect(x+3, y+it.h-3, it.w-6, 2);
+        ctx.fillStyle='#92400e'; ctx.fillRect(x+Math.floor(it.w/2)-2, y+Math.floor(it.h/2)-2, 4, 4);
+      } else { // harp
+        ctx.fillStyle='#eab308'; ctx.fillRect(x+3, y, it.w-6, it.h);
+        ctx.clearRect(x+5, y+2, it.w-10, it.h-4);
+        ctx.fillStyle='#fde68a'; for(let s=0;s<3;s++){ ctx.fillRect(x+6+s*3, y+2, 1, it.h-4); }
+        ctx.fillStyle='#b45309'; ctx.fillRect(x+2, y+it.h-2, it.w-4, 2);
+      }
+    }
+
+    function detonateHive(cx, cy){
+      beeExplosions.push({ x:cx, y:cy, t:0, dur:0.6 });
+      const withDist = enemies.map((e,idx)=>({idx, d: Math.hypot((e.x+e.w*0.5)-cx, (e.y+e.h*0.5)-cy)})).sort((a,b)=>a.d-b.d);
+      const victims=[];
+      for (const it of withDist){ if (it.d<=140) victims.push(it.idx); if (victims.length>=6) break; }
+      if (victims.length<6){ for (const it of withDist){ if (!victims.includes(it.idx) && it.d<=200) victims.push(it.idx); if (victims.length>=6) break; } }
+      victims.sort((a,b)=>b-a).forEach(i=>{ if (enemies[i]) { score += enemies[i].score; enemies.splice(i,1); } });
+    }
+
+    // ===== Daño / HUD =====
+    function damagePlayer(dmg){ player.hearts=Math.max(0, player.hearts - dmg); player.inv=PLAYER.invTime; if (player.hearts<=0) gameOver(); updateHearts(); }
+    function updateHearts(){ const hearts='❤'.repeat(player.hearts) + '♡'.repeat(PLAYER.maxHearts - player.hearts); hudHealth.textContent=`Vida: ${hearts}`; }
+    function updateHUD(){ hudItems.textContent = `Pan: ${player?.bread ?? 0} · Panales: ${player?.hives ?? 0} · Harpa: ${player?.hasHarp ? 'Lista' : '—'}`; }
+
+    // ===== Render =====
+    function drawPlayer(){
+      const px=i(player.x - cameraX), py=i(player.y);
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(px-5, groundY-4, player.w+10, 3);
+      if (SPRITES_READY) {
+        let anim = player.anim; if (anim==='shoot' && player.animT>0.35) anim = (Math.abs(player.vx)>1?'walk':'idle');
+        const idx = animIndex('david', anim, player.animT, player.fps);
+        drawTrimmed('david', idx, px, py, player.w, player.h, 1, 0);
+      } else { ctx.fillStyle='#9ca3af'; ctx.fillRect(px, py, player.w, player.h); }
+    }
+    function drawEnemy(e){
+      const gx=i(e.x - cameraX), gy=i(e.y);
+      if (!e.flyer && !e.roller){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(gx - 4, groundY-4, (e.w+8)|0, 3); }
+      if (SPRITES_READY){
+        let anim=e.anim; if (e.sheet==='demonio' && anim==='fire' && e.animT>0.3) anim='fly';
+        const idx=animIndex(e.sheet, anim, e.animT, e.fps||8);
+        const yNudge = (!e.flyer ? 2 : 0);
+        drawTrimmed(e.sheet, idx, gx, gy, e.w, e.h, 1, yNudge);
+      } else {
+        ctx.fillStyle='#e879f9'; ctx.fillRect(gx, gy, e.w, e.h);
+      }
+    }
+    function render(dt){
+      drawBackground(dt);
+
+      // pickups
+      for (const it of pickups) drawPickup(it);
+
+      // piedras
+      for (const s of stones){ ctx.fillStyle=s.color; ctx.fillRect(i(s.x - cameraX), i(s.y), s.w, s.h); }
+
+      // enemigos y proyectiles
+      for (const e of enemies) drawEnemy(e);
+      for (const p of enemyProjectiles){ ctx.fillStyle=p.color; ctx.fillRect(i(p.x - cameraX), i(p.y), p.w, p.h); }
+
+      // panales arrojados + efecto
+      for (const b of beeBombs){
+        const x=i(b.x - cameraX), y=i(b.y);
+        ctx.fillStyle='#facc15'; ctx.fillRect(x, y, b.w, b.h);
+        ctx.fillStyle='#78350f'; ctx.fillRect(x+4, y+4, 4, 4);
+      }
+      for (const ex of beeExplosions){
+        const prog = ex.t/ex.dur, R = 40 + 80*prog;
+        for(let t=0;t<14;t++){
+          const ang = (t/14)*Math.PI*2 + prog*6;
+          const px = (ex.x - cameraX) + Math.cos(ang)*R;
+          const py = ex.y - Math.sin(ang)*R*0.6;
+          ctx.fillStyle = (t%2)? 'rgba(250,204,21,0.85)' : 'rgba(234,179,8,0.85)';
+          ctx.fillRect(i(px), i(py), 3, 3);
+        }
+      }
+
+      // ondas harpa
+      for (const hp of harpPulse){
+        const k = hp.t/hp.dur, R = 40 + 340*k;
+        ctx.strokeStyle = `rgba(234,179,8,${1-k})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(i(player.x - cameraX), i(player.y+10), R, 0, Math.PI*2); ctx.stroke();
+      }
+
+      drawPlayer();
+
+      if (!SPRITES_READY){
+        ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(8,8,230,48);
+        ctx.fillStyle='#fde68a'; ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+        ctx.fillText('Cargando sprites…',16,26);
+        ctx.fillText('Usando fallback visual',16,44);
+      }
+    }
+
+    // ===== Loop =====
+    let last=0; function loop(ts){ const now=ts||performance.now(); const dt=Math.min(0.033,(now-last)/1000)||0.016; last=now; if (state==='play'){ update(dt); render(dt); } requestAnimationFrame(loop); }
+
+    // ===== Audio helpers =====
+    function playSafe(audio, vol=0.5, reset=false){
+      try{ if (reset) audio.currentTime = 0; audio.volume = vol; const p = audio.play(); if (p && p.catch) p.catch(()=>{}); }catch(_){}
+    }
+    function stopSafe(audio){ try{ audio.pause(); }catch(_){ } }
+
+    // ===== Flu
+    // CAMBIO: AUMENTO DE LA RESOLUCIÓN
+    const W = 1280;
+    const H = 720;
+    canvas.width = W;
+    canvas.height = H;
+  })();
+  </script>
 </body>
 </html>
